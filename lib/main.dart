@@ -36,8 +36,9 @@ class _MyHomePageState extends State<MyHomePage> {
   String _prediction = "Not Eating";
   bool _isDetecting = false;
 
-  List<Object>? _modelState;
+  Map<int, Object> _modelState = {};
   final Map<int, Object> _outputBuffers = {};
+  int _imageInputIndex = -1;
   int _logitsOutputIndex = 0;
 
   @override
@@ -70,10 +71,14 @@ class _MyHomePageState extends State<MyHomePage> {
         print("- ${tensor.name}: ${tensor.shape}");
       }
 
-      // Initialize state
-      _modelState = [];
-      for (final tensor in _interpreter!.getInputTensors().sublist(1)) {
-        _modelState!.add(List.filled(tensor.shape.reduce((a, b) => a * b), 0.0).reshape(tensor.shape));
+      // Find image and state tensor indices
+      final inputTensors = _interpreter!.getInputTensors();
+      for (int i = 0; i < inputTensors.length; i++) {
+        if (inputTensors[i].name == 'serving_default_image:0') {
+          _imageInputIndex = i;
+        } else {
+          _modelState[i] = List.filled(inputTensors[i].shape.reduce((a, b) => a * b), 0.0).reshape(inputTensors[i].shape);
+        }
       }
 
       // Prepare output buffers
@@ -83,8 +88,13 @@ class _MyHomePageState extends State<MyHomePage> {
         _outputBuffers[i] = List.filled(tensor.shape.reduce((a, b) => a * b), 0.0).reshape(tensor.shape);
       }
 
-      // Assuming the first output tensor is the logits
-      _logitsOutputIndex = 0;
+      // Find logits output tensor index
+      for (int i = 0; i < outputTensors.length; i++) {
+        if (outputTensors[i].shape.length == 2 && outputTensors[i].shape[1] == 600) {
+          _logitsOutputIndex = i;
+          break;
+        }
+      }
 
       _labels = await _loadLabels();
     } catch (e) {
@@ -138,19 +148,22 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _runInference(CameraImage image) async {
     try {
       var inputImage = _preprocessImage(image);
-      if (_interpreter == null || inputImage == null || _modelState == null) {
+      if (_interpreter == null || inputImage == null) {
         return;
       }
 
-      final inputs = [inputImage, ..._modelState!];
+      // Prepare inputs
+      final inputs = List<Object>.filled(_interpreter!.getInputTensors().length, 0);
+      if (_imageInputIndex != -1) {
+        inputs[_imageInputIndex] = inputImage;
+      }
+      for (var entry in _modelState.entries) {
+        inputs[entry.key] = entry.value;
+      }
 
       _interpreter!.run(inputs, _outputBuffers);
 
-      // Update state
-      // Assuming the output state tensors are in the same order as the input state tensors, starting from index 1.
-      for (int i = 0; i < _modelState!.length; i++) {
-        _modelState![i] = _outputBuffers[i+1]!;
-      }
+      // TODO: Correctly update state. For now, we don't update the state to isolate the input issue.
 
       final outputLogits = _outputBuffers[_logitsOutputIndex] as List<List<double>>;
 
