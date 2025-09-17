@@ -56,7 +56,7 @@ class _MyHomePageState extends State<MyHomePage> {
     try {
       final interpreterOptions = InterpreterOptions();
       _interpreter = await Interpreter.fromAsset(
-        'assets/models/movinet_a0_stream_float16.tflite',
+        'assets/models/movinet_a0_stream_int.tflite',
         options: interpreterOptions,
       );
       _interpreter!.allocateTensors();
@@ -77,7 +77,7 @@ class _MyHomePageState extends State<MyHomePage> {
         if (inputTensors[i].name == 'serving_default_image:0') {
           _imageInputIndex = i;
         } else {
-          _modelState[i] = Float32List(inputTensors[i].shape.reduce((a, b) => a * b)).reshape(inputTensors[i].shape);
+          _modelState[i] = Uint8List(inputTensors[i].shape.reduce((a, b) => a * b)).reshape(inputTensors[i].shape);
         }
       }
 
@@ -85,7 +85,7 @@ class _MyHomePageState extends State<MyHomePage> {
       final outputTensors = _interpreter!.getOutputTensors();
       for (int i = 0; i < outputTensors.length; i++) {
         final tensor = outputTensors[i];
-        _outputBuffers[i] = Float32List(tensor.shape.reduce((a, b) => a * b)).reshape(tensor.shape);
+        _outputBuffers[i] = Uint8List(tensor.shape.reduce((a, b) => a * b)).reshape(tensor.shape);
       }
 
       // Find logits output tensor index
@@ -173,21 +173,28 @@ class _MyHomePageState extends State<MyHomePage> {
         _modelState[inputIndex] = _outputBuffers[outputIndex]!;
       }
 
-      final outputLogits = _outputBuffers[_logitsOutputIndex] as List<List<double>>;
+      final outputLogits = (_outputBuffers[_logitsOutputIndex] as List<Uint8List>)[0];
+
+      // Dequantize the output
+      final logitsTensor = _interpreter!.getOutputTensor(_logitsOutputIndex);
+      final scale = logitsTensor.params?['scale'] ?? 1.0;
+      final zeroPoint = logitsTensor.params?['zeroPoint'] ?? 0;
+
+      final dequantizedLogits = outputLogits.map((value) => (value - zeroPoint) * scale).toList();
 
       // Process logits
       var maxScore = 0.0;
       var maxIndex = -1;
-      for (var i = 0; i < outputLogits[0].length; i++) {
-          if (outputLogits[0][i] > maxScore) {
-              maxScore = outputLogits[0][i];
+      for (var i = 0; i < dequantizedLogits.length; i++) {
+          if (dequantizedLogits[i] > maxScore) {
+              maxScore = dequantizedLogits[i];
               maxIndex = i;
           }
       }
 
       if (maxIndex != -1) {
           final predictedLabel = _labels![maxIndex];
-          print("Prediction: $predictedLabel, Score: ${outputLogits[0][maxIndex]}");
+          print("Prediction: $predictedLabel, Score: $maxScore");
           _updatePrediction(predictedLabel);
       }
     } catch (e) {
@@ -214,18 +221,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
     img.Image resizedImage = img.copyResize(convertedImage, width: 172, height: 172);
 
-    var imageAsFloat32List = Float32List(1 * 1 * 172 * 172 * 3);
-    var buffer = Float32List.view(imageAsFloat32List.buffer);
-    int pixelIndex = 0;
-    for (var y = 0; y < resizedImage.height; y++) {
-      for (var x = 0; x < resizedImage.width; x++) {
-        var pixel = resizedImage.getPixel(x, y);
-        buffer[pixelIndex++] = pixel.r / 255.0;
-        buffer[pixelIndex++] = pixel.g / 255.0;
-        buffer[pixelIndex++] = pixel.b / 255.0;
-      }
-    }
-    return imageAsFloat32List.reshape([1, 1, 172, 172, 3]);
+    var imageAsBytes = resizedImage.getBytes(order: img.ChannelOrder.rgb);
+    var imageAsUint8List = Uint8List.fromList(imageAsBytes);
+
+    return imageAsUint8List.reshape([1, 1, 172, 172, 3]);
   }
 
   img.Image? _convertCameraImage(CameraImage image) {
