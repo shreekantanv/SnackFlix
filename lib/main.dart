@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:tflite_flutter/tflite_flutter.dart';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:permission_handler/permission_handler.dart';
-import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
-import 'dart:io';
 
 void main() {
   runApp(const MyApp());
@@ -32,14 +31,80 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   CameraController? _cameraController;
+  Interpreter? _interpreter;
+  List<String>? _labels;
   String _prediction = "Not Eating";
   bool _isDetecting = false;
-  final PoseDetector _poseDetector = PoseDetector(options: PoseDetectorOptions());
+
+  Map<int, Object> _modelState = {};
+  final Map<int, Object> _outputBuffers = {};
+  int _imageInputIndex = -1;
+  int _logitsOutputIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _initCamera();
+    _initEverything();
+  }
+
+  Future<void> _initEverything() async {
+    await _initTflite();
+    await _initCamera();
+  }
+
+  Future<void> _initTflite() async {
+    try {
+      final interpreterOptions = InterpreterOptions();
+      _interpreter = await Interpreter.fromAsset(
+        'assets/models/movinet_a0_stream_int.tflite',
+        options: interpreterOptions,
+      );
+      _interpreter!.allocateTensors();
+
+      // Print input and output tensor details
+      print("Input Tensors:");
+      for (final tensor in _interpreter!.getInputTensors()) {
+        print("- ${tensor.name}: ${tensor.shape}");
+      }
+      print("Output Tensors:");
+      for (final tensor in _interpreter!.getOutputTensors()) {
+        print("- ${tensor.name}: ${tensor.shape}");
+      }
+
+      // Find image and state tensor indices
+      final inputTensors = _interpreter!.getInputTensors();
+      for (int i = 0; i < inputTensors.length; i++) {
+        if (inputTensors[i].name == 'serving_default_image:0') {
+          _imageInputIndex = i;
+        } else {
+          _modelState[i] = Uint8List(inputTensors[i].shape.reduce((a, b) => a * b)).reshape(inputTensors[i].shape);
+        }
+      }
+
+      // Prepare output buffers
+      final outputTensors = _interpreter!.getOutputTensors();
+      for (int i = 0; i < outputTensors.length; i++) {
+        final tensor = outputTensors[i];
+        _outputBuffers[i] = Uint8List(tensor.shape.reduce((a, b) => a * b)).reshape(tensor.shape);
+      }
+
+      // Find logits output tensor index
+      for (int i = 0; i < outputTensors.length; i++) {
+        if (outputTensors[i].shape.length == 2 && outputTensors[i].shape[1] == 600) {
+          _logitsOutputIndex = i;
+          break;
+        }
+      }
+
+      _labels = await _loadLabels();
+    } catch (e) {
+      print('Failed to load TFLite model: $e');
+    }
+  }
+
+  Future<List<String>> _loadLabels() async {
+    final labelsData = await rootBundle.loadString('assets/labels/kinetics_600_labels.txt');
+    return labelsData.split('\n');
   }
 
   Future<void> _initCamera() async {
@@ -81,107 +146,155 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _runInference(CameraImage image) async {
-    final inputImage = _inputImageFromCameraImage(image);
-    if (inputImage == null) {
+    try {
+      var inputImage = _preprocessImage(image);
+      if (_interpreter == null || inputImage == null) {
+        return;
+      }
+
+      // Prepare inputs
+      final inputs = List<Object>.filled(_interpreter!.getInputTensors().length, 0);
+      if (_imageInputIndex != -1) {
+        inputs[_imageInputIndex] = inputImage;
+      }
+      for (var entry in _modelState.entries) {
+        inputs[entry.key] = entry.value;
+      }
+
+      _interpreter!.run(inputs, _outputBuffers);
+
+      // Update state
+      final inputStateIndices = _modelState.keys.toList();
+      final outputStateIndices = _outputBuffers.keys.where((i) => i != _logitsOutputIndex).toList();
+
+      for (int i = 0; i < inputStateIndices.length; i++) {
+        final inputIndex = inputStateIndices[i];
+        final outputIndex = outputStateIndices[i];
+        _modelState[inputIndex] = _outputBuffers[outputIndex]!;
+      }
+
+      final outputLogits = (_outputBuffers[_logitsOutputIndex] as List<Uint8List>)[0];
+
+      // Dequantize the output
+      final logitsTensor = _interpreter!.getOutputTensor(_logitsOutputIndex);
+      final scale = logitsTensor.params?.scale ?? 1.0;
+      final zeroPoint = logitsTensor.params?.zeroPoint ?? 0;
+
+      final dequantizedLogits = outputLogits.map((value) => (value - zeroPoint) * scale).toList();
+
+      // Process logits
+      var maxScore = 0.0;
+      var maxIndex = -1;
+      for (var i = 0; i < dequantizedLogits.length; i++) {
+          if (dequantizedLogits[i] > maxScore) {
+              maxScore = dequantizedLogits[i];
+              maxIndex = i;
+          }
+      }
+
+      if (maxIndex != -1) {
+          final predictedLabel = _labels![maxIndex];
+          print("Prediction: $predictedLabel, Score: $maxScore");
+          _updatePrediction(predictedLabel);
+      }
+    } catch (e) {
+      print("Error running inference: $e");
+    } finally {
       _isDetecting = false;
-      return;
     }
+  }
 
-    final List<Pose> poses = await _poseDetector.processImage(inputImage);
-
-    bool isEating = false;
-    for (final pose in poses) {
-      // Check for hand-to-mouth gesture
-      isEating = _isEatingGesture(pose);
-      if (isEating) break;
-    }
+  void _updatePrediction(String predictedLabel) {
+    const eatingKeywords = ['eating', 'tasting food', 'chewing gum', 'drinking'];
+    bool isEating = eatingKeywords.any((keyword) => predictedLabel.toLowerCase().contains(keyword));
 
     setState(() {
       _prediction = isEating ? 'Eating' : 'Not Eating';
     });
-
-    _isDetecting = false;
   }
 
-  bool _isEatingGesture(Pose pose) {
-    // This is a simplified logic. A more robust implementation would be needed.
-    final rightHand = pose.landmarks[PoseLandmarkType.rightWrist];
-    final leftHand = pose.landmarks[PoseLandmarkType.leftWrist];
-    final mouthLeft = pose.landmarks[PoseLandmarkType.mouthLeft];
-    final mouthRight = pose.landmarks[PoseLandmarkType.mouthRight];
-    final nose = pose.landmarks[PoseLandmarkType.nose];
+  dynamic _preprocessImage(CameraImage image) {
+    img.Image? convertedImage = _convertCameraImage(image);
+    if (convertedImage == null) {
+      return null;
+    }
 
-    if (mouthLeft == null || mouthRight == null || nose == null) return false;
+    img.Image resizedImage = img.copyResize(convertedImage, width: 172, height: 172);
 
-    final mouthX = (mouthLeft.x + mouthRight.x) / 2;
-    final mouthY = (mouthLeft.y + mouthRight.y) / 2;
+    var imageAsBytes = resizedImage.getBytes(order: img.ChannelOrder.rgb);
+    var imageAsUint8List = Uint8List.fromList(imageAsBytes);
 
-    bool rightHandNearMouth = false;
-    if (rightHand != null) {
-      final distance = (rightHand.x - mouthX).abs() + (rightHand.y - mouthY).abs();
-      // Also check if hand is higher than the nose (to avoid detecting hand on chin)
-      if (distance < 80 && rightHand.y < nose.y) {
-        rightHandNearMouth = true;
+    return imageAsUint8List.reshape([1, 1, 172, 172, 3]);
+  }
+
+  img.Image? _convertCameraImage(CameraImage image) {
+    if (image.format.group == ImageFormatGroup.yuv420) {
+      return _convertYUV420ToImage(image);
+    } else if (image.format.group == ImageFormatGroup.bgra8888) {
+      return _convertBGRA8888ToImage(image);
+    }
+    return null;
+  }
+
+  img.Image _convertYUV420ToImage(CameraImage cameraImage) {
+    final imageWidth = cameraImage.width;
+    final imageHeight = cameraImage.height;
+
+    final yBuffer = cameraImage.planes[0].bytes;
+    final uBuffer = cameraImage.planes[1].bytes;
+    final vBuffer = cameraImage.planes[2].bytes;
+
+    final int yRowStride = cameraImage.planes[0].bytesPerRow;
+    final int yPixelStride = cameraImage.planes[0].bytesPerPixel!;
+
+    final int uvRowStride = cameraImage.planes[1].bytesPerRow;
+    final int uvPixelStride = cameraImage.planes[1].bytesPerPixel!;
+
+    final image = img.Image(width: imageWidth, height: imageHeight);
+
+    for (int h = 0; h < imageHeight; h++) {
+      int uvh = (h / 2).floor();
+
+      for (int w = 0; w < imageWidth; w++) {
+        int uvw = (w / 2).floor();
+
+        final yIndex = (h * yRowStride) + (w * yPixelStride);
+
+        final int y = yBuffer[yIndex];
+
+        final int uvIndex = (uvh * uvRowStride) + (uvw * uvPixelStride);
+
+        final int u = uBuffer[uvIndex];
+        final int v = vBuffer[uvIndex];
+
+        int r = (y + v * 1436 / 1024 - 179).round();
+        int g = (y - u * 46549 / 131072 + 44 - v * 93604 / 131072 + 91).round();
+        int b = (y + u * 1814 / 1024 - 227).round();
+
+        r = r.clamp(0, 255);
+        g = g.clamp(0, 255);
+        b = b.clamp(0, 255);
+
+        image.setPixelRgb(w, h, r, g, b);
       }
     }
 
-    bool leftHandNearMouth = false;
-    if (leftHand != null) {
-      final distance = (leftHand.x - mouthX).abs() + (leftHand.y - mouthY).abs();
-      if (distance < 80 && leftHand.y < nose.y) {
-        leftHandNearMouth = true;
-      }
-    }
-
-    return rightHandNearMouth || leftHandNearMouth;
+    return image;
   }
 
-  InputImage? _inputImageFromCameraImage(CameraImage image) {
-    // get image rotation
-    // then get it from the device specification
-    final sensorOrientation = _cameraController!.description.sensorOrientation;
-    InputImageRotation? rotation;
-    final orientations = {
-      DeviceOrientation.portraitUp: 0,
-      DeviceOrientation.landscapeLeft: 90,
-      DeviceOrientation.portraitDown: 180,
-      DeviceOrientation.landscapeRight: 270,
-    };
-    final rotationCompensation = orientations[_cameraController!.value.deviceOrientation] ?? 0;
-    final finalRotation = (sensorOrientation + rotationCompensation) % 360;
-    rotation = InputImageRotationValue.fromRawValue(finalRotation);
-    if (rotation == null) return null;
-
-    // get image format
-    final format = InputImageFormatValue.fromRawValue(image.format.raw);
-    // validate format depending on platform
-    // only supported formats:
-    // * nv21 for Android
-    // * bgra8888 for iOS
-    if (format == null ||
-        (Platform.isAndroid && format != InputImageFormat.nv21) ||
-        (Platform.isIOS && format != InputImageFormat.bgra8888)) return null;
-
-    // since format is constraint to nv21 or bgra8888, both only have one plane
-    if (image.planes.length != 1) return null;
-    final plane = image.planes.first;
-
-    // compose InputImage
-    return InputImage.fromBytes(
-      bytes: plane.bytes,
-      metadata: InputImageMetadata(
-        size: Size(image.width.toDouble(), image.height.toDouble()),
-        rotation: rotation,
-        format: format,
-        bytesPerRow: plane.bytesPerRow,
-      ),
+  img.Image _convertBGRA8888ToImage(CameraImage image) {
+    return img.Image.fromBytes(
+      width: image.width,
+      height: image.height,
+      bytes: image.planes[0].bytes.buffer,
+      order: img.ChannelOrder.bgra,
     );
   }
 
   @override
   void dispose() {
     _cameraController?.dispose();
-    _poseDetector.close();
+    _interpreter?.close();
     super.dispose();
   }
 
