@@ -134,7 +134,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
       final inputs = [inputImage, ..._modelState!];
 
-      _interpreter!.runForMultipleInputsOutputs(inputs, _outputBuffers);
+      _interpreter!.run(inputs, _outputBuffers);
 
       // Update state
       // Assuming the output state tensors are in the same order as the input state tensors, starting from index 1.
