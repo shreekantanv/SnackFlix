@@ -129,8 +129,6 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   bool _isEatingGesture(Pose pose) {
-    final rightIndex = pose.landmarks[PoseLandmarkType.rightIndex];
-    final leftIndex = pose.landmarks[PoseLandmarkType.leftIndex];
     final mouthLeft = pose.landmarks[PoseLandmarkType.mouthLeft];
     final mouthRight = pose.landmarks[PoseLandmarkType.mouthRight];
     final leftEye = pose.landmarks[PoseLandmarkType.leftEye];
@@ -143,31 +141,29 @@ class _MyHomePageState extends State<MyHomePage> {
     final mouthX = (mouthLeft.x + mouthRight.x) / 2;
     final mouthY = (mouthLeft.y + mouthRight.y) / 2;
 
-    // Use inter-eye distance as a normalization factor
     final eyeDistance = (leftEye.x - rightEye.x).abs();
-    if (eyeDistance < 10) return false; // Avoid division by zero and unstable results
+    if (eyeDistance < 10) return false;
 
-    bool isEating = false;
+    final handLandmarks = [
+      pose.landmarks[PoseLandmarkType.rightWrist],
+      pose.landmarks[PoseLandmarkType.rightIndex],
+      pose.landmarks[PoseLandmarkType.rightThumb],
+      pose.landmarks[PoseLandmarkType.leftWrist],
+      pose.landmarks[PoseLandmarkType.leftIndex],
+      pose.landmarks[PoseLandmarkType.leftThumb],
+    ];
 
-    // Check right hand
-    if (rightIndex != null) {
-      final distance = (rightIndex.x - mouthX).abs() + (rightIndex.y - mouthY).abs();
-      final normalizedDistance = distance / eyeDistance;
-      if (normalizedDistance < 0.8) { // This threshold needs tuning
-        isEating = true;
+    for (final landmark in handLandmarks) {
+      if (landmark != null) {
+        final distance = (landmark.x - mouthX).abs() + (landmark.y - mouthY).abs();
+        final normalizedDistance = distance / eyeDistance;
+        if (normalizedDistance < 1.0) { // Increased threshold
+          return true; // Eating gesture detected
+        }
       }
     }
 
-    // Check left hand
-    if (!isEating && leftIndex != null) {
-      final distance = (leftIndex.x - mouthX).abs() + (leftIndex.y - mouthY).abs();
-      final normalizedDistance = distance / eyeDistance;
-      if (normalizedDistance < 0.8) { // This threshold needs tuning
-        isEating = true;
-      }
-    }
-
-    return isEating;
+    return false; // No eating gesture detected
   }
 
   InputImage? _inputImageFromCameraImage(CameraImage image) {
