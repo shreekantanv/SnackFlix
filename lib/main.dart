@@ -163,7 +163,15 @@ class _MyHomePageState extends State<MyHomePage> {
 
       _interpreter!.run(inputs, _outputBuffers);
 
-      // TODO: Correctly update state. For now, we don't update the state to isolate the input issue.
+      // Update state
+      final inputStateIndices = _modelState.keys.toList();
+      final outputStateIndices = _outputBuffers.keys.where((i) => i != _logitsOutputIndex).toList();
+
+      for (int i = 0; i < inputStateIndices.length; i++) {
+        final inputIndex = inputStateIndices[i];
+        final outputIndex = outputStateIndices[i];
+        _modelState[inputIndex] = _outputBuffers[outputIndex]!;
+      }
 
       final outputLogits = _outputBuffers[_logitsOutputIndex] as List<List<double>>;
 
