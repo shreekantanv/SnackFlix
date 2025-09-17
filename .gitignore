@@ -1,3 +1,4 @@
 /build/app/intermediates
 /build/camera_android_camerax
 /build
+/.dart_tool

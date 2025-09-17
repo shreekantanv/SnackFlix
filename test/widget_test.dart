@@ -13,7 +13,7 @@ import 'package:snackflix/main.dart';
 void main() {
   testWidgets('App starts and displays initial text', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const SnackFlixChewPOC());
 
     // Verify that the app bar title is correct.
     expect(find.text('Am I Eating?'), findsOneWidget);
