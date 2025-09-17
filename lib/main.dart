@@ -191,20 +191,20 @@ class _MyHomePageState extends State<MyHomePage> {
       return null;
     }
 
-    img.Image resizedImage = img.copyResize(convertedImage, width: 224, height: 224);
+    img.Image resizedImage = img.copyResize(convertedImage, width: 172, height: 172);
 
-    var imageAsFloat32List = Float32List(1 * 224 * 224 * 3);
+    var imageAsFloat32List = Float32List(1 * 1 * 172 * 172 * 3);
     var buffer = Float32List.view(imageAsFloat32List.buffer);
     int pixelIndex = 0;
     for (var y = 0; y < resizedImage.height; y++) {
       for (var x = 0; x < resizedImage.width; x++) {
         var pixel = resizedImage.getPixel(x, y);
-        buffer[pixelIndex++] = pixel.r.toDouble();
-        buffer[pixelIndex++] = pixel.g.toDouble();
-        buffer[pixelIndex++] = pixel.b.toDouble();
+        buffer[pixelIndex++] = pixel.r / 255.0;
+        buffer[pixelIndex++] = pixel.g / 255.0;
+        buffer[pixelIndex++] = pixel.b / 255.0;
       }
     }
-    return imageAsFloat32List.reshape([1, 1, 224, 224, 3]);
+    return imageAsFloat32List.reshape([1, 1, 172, 172, 3]);
   }
 
   img.Image? _convertCameraImage(CameraImage image) {
