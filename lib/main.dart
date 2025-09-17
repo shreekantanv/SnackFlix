@@ -60,6 +60,16 @@ class _MyHomePageState extends State<MyHomePage> {
       );
       _interpreter!.allocateTensors();
 
+      // Print input and output tensor details
+      print("Input Tensors:");
+      for (final tensor in _interpreter!.getInputTensors()) {
+        print("- ${tensor.name}: ${tensor.shape}");
+      }
+      print("Output Tensors:");
+      for (final tensor in _interpreter!.getOutputTensors()) {
+        print("- ${tensor.name}: ${tensor.shape}");
+      }
+
       // Initialize state
       _modelState = [];
       for (final tensor in _interpreter!.getInputTensors().sublist(1)) {
