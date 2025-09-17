@@ -126,6 +126,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
       if (maxIndex != -1) {
         final predictedLabel = _labels![maxIndex];
+        print("Prediction: $predictedLabel, Score: ${output[0][maxIndex]}");
         _updatePrediction(predictedLabel);
       }
     } catch (e) {
