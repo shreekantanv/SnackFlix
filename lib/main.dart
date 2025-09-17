@@ -67,12 +67,14 @@ class _MyHomePageState extends State<MyHomePage> {
       }
 
       // Prepare output buffers
-      for (final tensor in _interpreter!.getOutputTensors()) {
-          _outputBuffers[tensor.index] = List.filled(tensor.shape.reduce((a, b) => a * b), 0.0).reshape(tensor.shape);
+      final outputTensors = _interpreter!.getOutputTensors();
+      for (int i = 0; i < outputTensors.length; i++) {
+        final tensor = outputTensors[i];
+        _outputBuffers[i] = List.filled(tensor.shape.reduce((a, b) => a * b), 0.0).reshape(tensor.shape);
       }
 
       // Assuming the first output tensor is the logits
-      _logitsOutputIndex = _interpreter!.getOutputTensors().first.index;
+      _logitsOutputIndex = 0;
 
       _labels = await _loadLabels();
     } catch (e) {
@@ -135,8 +137,9 @@ class _MyHomePageState extends State<MyHomePage> {
       _interpreter!.runForMultipleInputsOutputs(inputs, _outputBuffers);
 
       // Update state
+      // Assuming the output state tensors are in the same order as the input state tensors, starting from index 1.
       for (int i = 0; i < _modelState!.length; i++) {
-          _modelState![i] = _outputBuffers[_interpreter!.getOutputTensors()[i+1].index]!;
+        _modelState![i] = _outputBuffers[i+1]!;
       }
 
       final outputLogits = _outputBuffers[_logitsOutputIndex] as List<List<double>>;
