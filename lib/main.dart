@@ -77,7 +77,7 @@ class _MyHomePageState extends State<MyHomePage> {
         if (inputTensors[i].name == 'serving_default_image:0') {
           _imageInputIndex = i;
         } else {
-          _modelState[i] = List.filled(inputTensors[i].shape.reduce((a, b) => a * b), 0.0).reshape(inputTensors[i].shape);
+          _modelState[i] = Float32List(inputTensors[i].shape.reduce((a, b) => a * b)).reshape(inputTensors[i].shape);
         }
       }
 
@@ -85,7 +85,7 @@ class _MyHomePageState extends State<MyHomePage> {
       final outputTensors = _interpreter!.getOutputTensors();
       for (int i = 0; i < outputTensors.length; i++) {
         final tensor = outputTensors[i];
-        _outputBuffers[i] = List.filled(tensor.shape.reduce((a, b) => a * b), 0.0).reshape(tensor.shape);
+        _outputBuffers[i] = Float32List(tensor.shape.reduce((a, b) => a * b)).reshape(tensor.shape);
       }
 
       // Find logits output tensor index
