@@ -73,7 +73,14 @@ class _MyHomePageState extends State<MyHomePage> {
         print('No cameras available');
         return;
       }
-      _cameraController = CameraController(cameras[0], ResolutionPreset.high);
+
+      // Find the front camera
+      CameraDescription frontCamera = cameras.firstWhere(
+        (camera) => camera.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras[0], // fallback to the first camera if no front camera is found
+      );
+
+      _cameraController = CameraController(frontCamera, ResolutionPreset.high);
       await _cameraController!.initialize();
       if (!mounted) {
         return;
