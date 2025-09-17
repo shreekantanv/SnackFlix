@@ -102,7 +102,7 @@ class _MyHomePageState extends State<MyHomePage> {
         orElse: () => cameras[0], // fallback to the first camera if no front camera is found
       );
 
-      _cameraController = CameraController(frontCamera, ResolutionPreset.high);
+      _cameraController = CameraController(frontCamera, ResolutionPreset.medium);
       await _cameraController!.initialize();
       if (!mounted) {
         return;
@@ -189,9 +189,9 @@ class _MyHomePageState extends State<MyHomePage> {
     for (var y = 0; y < resizedImage.height; y++) {
       for (var x = 0; x < resizedImage.width; x++) {
         var pixel = resizedImage.getPixel(x, y);
-        buffer[pixelIndex++] = (pixel.r - 127.5) / 127.5;
-        buffer[pixelIndex++] = (pixel.g - 127.5) / 127.5;
-        buffer[pixelIndex++] = (pixel.b - 127.5) / 127.5;
+        buffer[pixelIndex++] = pixel.r.toDouble();
+        buffer[pixelIndex++] = pixel.g.toDouble();
+        buffer[pixelIndex++] = pixel.b.toDouble();
       }
     }
     return imageAsFloat32List.reshape([1, 1, 224, 224, 3]);
