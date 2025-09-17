@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'package:tflite_flutter/tflite_flutter.dart';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
+import 'dart:io';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 void main() {
   runApp(const MyApp());
@@ -31,80 +33,21 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   CameraController? _cameraController;
-  Interpreter? _interpreter;
-  List<String>? _labels;
   String _prediction = "Not Eating";
   bool _isDetecting = false;
-
-  Map<int, Object> _modelState = {};
-  final Map<int, Object> _outputBuffers = {};
-  int _imageInputIndex = -1;
-  int _logitsOutputIndex = 0;
+  final PoseDetector _poseDetector = PoseDetector(options: PoseDetectorOptions());
+  YoutubePlayerController? _youtubeController;
+  Timer? _notEatingTimer;
 
   @override
   void initState() {
     super.initState();
-    _initEverything();
-  }
-
-  Future<void> _initEverything() async {
-    await _initTflite();
-    await _initCamera();
-  }
-
-  Future<void> _initTflite() async {
-    try {
-      final interpreterOptions = InterpreterOptions();
-      _interpreter = await Interpreter.fromAsset(
-        'assets/models/movinet_a0_stream_int.tflite',
-        options: interpreterOptions,
-      );
-      _interpreter!.allocateTensors();
-
-      // Print input and output tensor details
-      print("Input Tensors:");
-      for (final tensor in _interpreter!.getInputTensors()) {
-        print("- ${tensor.name}: ${tensor.shape}");
-      }
-      print("Output Tensors:");
-      for (final tensor in _interpreter!.getOutputTensors()) {
-        print("- ${tensor.name}: ${tensor.shape}");
-      }
-
-      // Find image and state tensor indices
-      final inputTensors = _interpreter!.getInputTensors();
-      for (int i = 0; i < inputTensors.length; i++) {
-        if (inputTensors[i].name == 'serving_default_image:0') {
-          _imageInputIndex = i;
-        } else {
-          _modelState[i] = Uint8List(inputTensors[i].shape.reduce((a, b) => a * b)).reshape(inputTensors[i].shape);
-        }
-      }
-
-      // Prepare output buffers
-      final outputTensors = _interpreter!.getOutputTensors();
-      for (int i = 0; i < outputTensors.length; i++) {
-        final tensor = outputTensors[i];
-        _outputBuffers[i] = Uint8List(tensor.shape.reduce((a, b) => a * b)).reshape(tensor.shape);
-      }
-
-      // Find logits output tensor index
-      for (int i = 0; i < outputTensors.length; i++) {
-        if (outputTensors[i].shape.length == 2 && outputTensors[i].shape[1] == 600) {
-          _logitsOutputIndex = i;
-          break;
-        }
-      }
-
-      _labels = await _loadLabels();
-    } catch (e) {
-      print('Failed to load TFLite model: $e');
-    }
-  }
-
-  Future<List<String>> _loadLabels() async {
-    final labelsData = await rootBundle.loadString('assets/labels/kinetics_600_labels.txt');
-    return labelsData.split('\n');
+    _youtubeController = YoutubePlayerController.fromVideoId(
+      videoId: 'M-wjK4p_g_s', // A placeholder video
+      autoPlay: false,
+      params: const YoutubePlayerParams(showFullscreenButton: true),
+    );
+    _initCamera();
   }
 
   Future<void> _initCamera() async {
@@ -146,155 +89,135 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _runInference(CameraImage image) async {
-    try {
-      var inputImage = _preprocessImage(image);
-      if (_interpreter == null || inputImage == null) {
-        return;
-      }
-
-      // Prepare inputs
-      final inputs = List<Object>.filled(_interpreter!.getInputTensors().length, 0);
-      if (_imageInputIndex != -1) {
-        inputs[_imageInputIndex] = inputImage;
-      }
-      for (var entry in _modelState.entries) {
-        inputs[entry.key] = entry.value;
-      }
-
-      _interpreter!.run(inputs, _outputBuffers);
-
-      // Update state
-      final inputStateIndices = _modelState.keys.toList();
-      final outputStateIndices = _outputBuffers.keys.where((i) => i != _logitsOutputIndex).toList();
-
-      for (int i = 0; i < inputStateIndices.length; i++) {
-        final inputIndex = inputStateIndices[i];
-        final outputIndex = outputStateIndices[i];
-        _modelState[inputIndex] = _outputBuffers[outputIndex]!;
-      }
-
-      final outputLogits = (_outputBuffers[_logitsOutputIndex] as List<Uint8List>)[0];
-
-      // Dequantize the output
-      final logitsTensor = _interpreter!.getOutputTensor(_logitsOutputIndex);
-      final scale = logitsTensor.params?.scale ?? 1.0;
-      final zeroPoint = logitsTensor.params?.zeroPoint ?? 0;
-
-      final dequantizedLogits = outputLogits.map((value) => (value - zeroPoint) * scale).toList();
-
-      // Process logits
-      var maxScore = 0.0;
-      var maxIndex = -1;
-      for (var i = 0; i < dequantizedLogits.length; i++) {
-          if (dequantizedLogits[i] > maxScore) {
-              maxScore = dequantizedLogits[i];
-              maxIndex = i;
-          }
-      }
-
-      if (maxIndex != -1) {
-          final predictedLabel = _labels![maxIndex];
-          print("Prediction: $predictedLabel, Score: $maxScore");
-          _updatePrediction(predictedLabel);
-      }
-    } catch (e) {
-      print("Error running inference: $e");
-    } finally {
+    final inputImage = _inputImageFromCameraImage(image);
+    if (inputImage == null) {
       _isDetecting = false;
-    }
-  }
-
-  void _updatePrediction(String predictedLabel) {
-    const eatingKeywords = ['eating', 'tasting food', 'chewing gum', 'drinking'];
-    bool isEating = eatingKeywords.any((keyword) => predictedLabel.toLowerCase().contains(keyword));
-
-    setState(() {
-      _prediction = isEating ? 'Eating' : 'Not Eating';
-    });
-  }
-
-  dynamic _preprocessImage(CameraImage image) {
-    img.Image? convertedImage = _convertCameraImage(image);
-    if (convertedImage == null) {
-      return null;
+      return;
     }
 
-    img.Image resizedImage = img.copyResize(convertedImage, width: 172, height: 172);
+    final List<Pose> poses = await _poseDetector.processImage(inputImage);
 
-    var imageAsBytes = resizedImage.getBytes(order: img.ChannelOrder.rgb);
-    var imageAsUint8List = Uint8List.fromList(imageAsBytes);
-
-    return imageAsUint8List.reshape([1, 1, 172, 172, 3]);
-  }
-
-  img.Image? _convertCameraImage(CameraImage image) {
-    if (image.format.group == ImageFormatGroup.yuv420) {
-      return _convertYUV420ToImage(image);
-    } else if (image.format.group == ImageFormatGroup.bgra8888) {
-      return _convertBGRA8888ToImage(image);
+    bool isEating = false;
+    for (final pose in poses) {
+      // Check for hand-to-mouth gesture
+      isEating = _isEatingGesture(pose);
+      if (isEating) break;
     }
-    return null;
-  }
 
-  img.Image _convertYUV420ToImage(CameraImage cameraImage) {
-    final imageWidth = cameraImage.width;
-    final imageHeight = cameraImage.height;
-
-    final yBuffer = cameraImage.planes[0].bytes;
-    final uBuffer = cameraImage.planes[1].bytes;
-    final vBuffer = cameraImage.planes[2].bytes;
-
-    final int yRowStride = cameraImage.planes[0].bytesPerRow;
-    final int yPixelStride = cameraImage.planes[0].bytesPerPixel!;
-
-    final int uvRowStride = cameraImage.planes[1].bytesPerRow;
-    final int uvPixelStride = cameraImage.planes[1].bytesPerPixel!;
-
-    final image = img.Image(width: imageWidth, height: imageHeight);
-
-    for (int h = 0; h < imageHeight; h++) {
-      int uvh = (h / 2).floor();
-
-      for (int w = 0; w < imageWidth; w++) {
-        int uvw = (w / 2).floor();
-
-        final yIndex = (h * yRowStride) + (w * yPixelStride);
-
-        final int y = yBuffer[yIndex];
-
-        final int uvIndex = (uvh * uvRowStride) + (uvw * uvPixelStride);
-
-        final int u = uBuffer[uvIndex];
-        final int v = vBuffer[uvIndex];
-
-        int r = (y + v * 1436 / 1024 - 179).round();
-        int g = (y - u * 46549 / 131072 + 44 - v * 93604 / 131072 + 91).round();
-        int b = (y + u * 1814 / 1024 - 227).round();
-
-        r = r.clamp(0, 255);
-        g = g.clamp(0, 255);
-        b = b.clamp(0, 255);
-
-        image.setPixelRgb(w, h, r, g, b);
+    if (isEating) {
+      _notEatingTimer?.cancel();
+      _youtubeController?.play();
+      if (_prediction != 'Eating') {
+        setState(() {
+          _prediction = 'Eating';
+        });
+      }
+    } else {
+      if (_notEatingTimer == null || !_notEatingTimer!.isActive) {
+        _notEatingTimer = Timer(const Duration(seconds: 3), () {
+          _youtubeController?.pause();
+          if (_prediction != 'Not Eating') {
+            setState(() {
+              _prediction = 'Not Eating';
+            });
+          }
+        });
       }
     }
 
-    return image;
+    _isDetecting = false;
   }
 
-  img.Image _convertBGRA8888ToImage(CameraImage image) {
-    return img.Image.fromBytes(
-      width: image.width,
-      height: image.height,
-      bytes: image.planes[0].bytes.buffer,
-      order: img.ChannelOrder.bgra,
+  bool _isEatingGesture(Pose pose) {
+    final rightIndex = pose.landmarks[PoseLandmarkType.rightIndex];
+    final leftIndex = pose.landmarks[PoseLandmarkType.leftIndex];
+    final mouthLeft = pose.landmarks[PoseLandmarkType.mouthLeft];
+    final mouthRight = pose.landmarks[PoseLandmarkType.mouthRight];
+    final leftEye = pose.landmarks[PoseLandmarkType.leftEye];
+    final rightEye = pose.landmarks[PoseLandmarkType.rightEye];
+
+    if (mouthLeft == null || mouthRight == null || leftEye == null || rightEye == null) {
+      return false;
+    }
+
+    final mouthX = (mouthLeft.x + mouthRight.x) / 2;
+    final mouthY = (mouthLeft.y + mouthRight.y) / 2;
+
+    // Use inter-eye distance as a normalization factor
+    final eyeDistance = (leftEye.x - rightEye.x).abs();
+    if (eyeDistance < 10) return false; // Avoid division by zero and unstable results
+
+    bool isEating = false;
+
+    // Check right hand
+    if (rightIndex != null) {
+      final distance = (rightIndex.x - mouthX).abs() + (rightIndex.y - mouthY).abs();
+      final normalizedDistance = distance / eyeDistance;
+      if (normalizedDistance < 0.8) { // This threshold needs tuning
+        isEating = true;
+      }
+    }
+
+    // Check left hand
+    if (!isEating && leftIndex != null) {
+      final distance = (leftIndex.x - mouthX).abs() + (leftIndex.y - mouthY).abs();
+      final normalizedDistance = distance / eyeDistance;
+      if (normalizedDistance < 0.8) { // This threshold needs tuning
+        isEating = true;
+      }
+    }
+
+    return isEating;
+  }
+
+  InputImage? _inputImageFromCameraImage(CameraImage image) {
+    // get image rotation
+    // then get it from the device specification
+    final sensorOrientation = _cameraController!.description.sensorOrientation;
+    InputImageRotation? rotation;
+    final orientations = {
+      DeviceOrientation.portraitUp: 0,
+      DeviceOrientation.landscapeLeft: 90,
+      DeviceOrientation.portraitDown: 180,
+      DeviceOrientation.landscapeRight: 270,
+    };
+    final rotationCompensation = orientations[_cameraController!.value.deviceOrientation] ?? 0;
+    final finalRotation = (sensorOrientation + rotationCompensation) % 360;
+    rotation = InputImageRotationValue.fromRawValue(finalRotation);
+    if (rotation == null) return null;
+
+    // get image format
+    final format = InputImageFormatValue.fromRawValue(image.format.raw);
+    // validate format depending on platform
+    // only supported formats:
+    // * nv21 for Android
+    // * bgra8888 for iOS
+    if (format == null ||
+        (Platform.isAndroid && format != InputImageFormat.nv21) ||
+        (Platform.isIOS && format != InputImageFormat.bgra8888)) return null;
+
+    // since format is constraint to nv21 or bgra8888, both only have one plane
+    if (image.planes.length != 1) return null;
+    final plane = image.planes.first;
+
+    // compose InputImage
+    return InputImage.fromBytes(
+      bytes: plane.bytes,
+      metadata: InputImageMetadata(
+        size: Size(image.width.toDouble(), image.height.toDouble()),
+        rotation: rotation,
+        format: format,
+        bytesPerRow: plane.bytesPerRow,
+      ),
     );
   }
 
   @override
   void dispose() {
     _cameraController?.dispose();
-    _interpreter?.close();
+    _poseDetector.close();
+    _youtubeController?.close();
+    _notEatingTimer?.cancel();
     super.dispose();
   }
 
@@ -302,21 +225,46 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Am I Eating?'),
+        title: const Text('SnackFlix'),
       ),
       body: Stack(
         children: [
-          _cameraController == null || !_cameraController!.value.isInitialized
-              ? const Center(child: CircularProgressIndicator())
-              : CameraPreview(_cameraController!),
-          Align(
-            alignment: Alignment.bottomCenter,
+          if (_youtubeController != null)
+            YoutubePlayerScaffold(
+              controller: _youtubeController!,
+              builder: (context, player) {
+                return player;
+              },
+            ),
+          Positioned(
+            top: 20,
+            right: 20,
+            child: SizedBox(
+              width: 100,
+              height: 150,
+              child: _cameraController != null && _cameraController!.value.isInitialized
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8.0),
+                      child: CameraPreview(_cameraController!),
+                    )
+                  : Container(
+                      color: Colors.black,
+                      child: const Center(child: CircularProgressIndicator()),
+                    ),
+            ),
+          ),
+          Positioned(
+            top: 175,
+            right: 20,
             child: Container(
-              color: Colors.black.withOpacity(0.5),
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(8.0),
+              decoration: BoxDecoration(
+                color: _prediction == 'Eating' ? Colors.green : Colors.red,
+                borderRadius: BorderRadius.circular(8.0),
+              ),
               child: Text(
                 _prediction,
-                style: const TextStyle(color: Colors.white, fontSize: 20),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
           ),
