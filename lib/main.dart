@@ -36,6 +36,10 @@ class _MyHomePageState extends State<MyHomePage> {
   String _prediction = "Not Eating";
   bool _isDetecting = false;
 
+  List<Object>? _modelState;
+  final Map<int, Object> _outputBuffers = {};
+  int _logitsOutputIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +58,22 @@ class _MyHomePageState extends State<MyHomePage> {
         'assets/models/movinet_a0_stream_float16.tflite',
         options: interpreterOptions,
       );
+      _interpreter!.allocateTensors();
+
+      // Initialize state
+      _modelState = [];
+      for (final tensor in _interpreter!.getInputTensors().sublist(1)) {
+        _modelState!.add(List.filled(tensor.shape.reduce((a, b) => a * b), 0.0).reshape(tensor.shape));
+      }
+
+      // Prepare output buffers
+      for (final tensor in _interpreter!.getOutputTensors()) {
+          _outputBuffers[tensor.index] = List.filled(tensor.shape.reduce((a, b) => a * b), 0.0).reshape(tensor.shape);
+      }
+
+      // Assuming the first output tensor is the logits
+      _logitsOutputIndex = _interpreter!.getOutputTensors().first.index;
+
       _labels = await _loadLabels();
     } catch (e) {
       print('Failed to load TFLite model: $e');
@@ -104,30 +124,37 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _runInference(CameraImage image) async {
-    var input = _preprocessImage(image);
-
-    if (_interpreter == null || input == null) {
-      _isDetecting = false;
-      return;
-    }
-
-    var output = List.filled(1 * _labels!.length, 0.0).reshape([1, _labels!.length]);
     try {
-      _interpreter!.run(input, output);
+      var inputImage = _preprocessImage(image);
+      if (_interpreter == null || inputImage == null || _modelState == null) {
+        return;
+      }
 
+      final inputs = [inputImage, ..._modelState!];
+
+      _interpreter!.runForMultipleInputsOutputs(inputs, _outputBuffers);
+
+      // Update state
+      for (int i = 0; i < _modelState!.length; i++) {
+          _modelState![i] = _outputBuffers[_interpreter!.getOutputTensors()[i+1].index]!;
+      }
+
+      final outputLogits = _outputBuffers[_logitsOutputIndex] as List<List<double>>;
+
+      // Process logits
       var maxScore = 0.0;
       var maxIndex = -1;
-      for (var i = 0; i < output[0].length; i++) {
-        if (output[0][i] > maxScore) {
-          maxScore = output[0][i];
-          maxIndex = i;
-        }
+      for (var i = 0; i < outputLogits[0].length; i++) {
+          if (outputLogits[0][i] > maxScore) {
+              maxScore = outputLogits[0][i];
+              maxIndex = i;
+          }
       }
 
       if (maxIndex != -1) {
-        final predictedLabel = _labels![maxIndex];
-        print("Prediction: $predictedLabel, Score: ${output[0][maxIndex]}");
-        _updatePrediction(predictedLabel);
+          final predictedLabel = _labels![maxIndex];
+          print("Prediction: $predictedLabel, Score: ${outputLogits[0][maxIndex]}");
+          _updatePrediction(predictedLabel);
       }
     } catch (e) {
       print("Error running inference: $e");
@@ -164,7 +191,7 @@ class _MyHomePageState extends State<MyHomePage> {
         buffer[pixelIndex++] = (pixel.b - 127.5) / 127.5;
       }
     }
-    return imageAsFloat32List.reshape([1, 224, 224, 3]);
+    return imageAsFloat32List.reshape([1, 1, 224, 224, 3]);
   }
 
   img.Image? _convertCameraImage(CameraImage image) {
