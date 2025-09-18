@@ -16,12 +16,12 @@ class AppIntroScreen extends StatelessWidget {
               Text(
                 'SnackFlix',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headline3,
+                style: Theme.of(context).textTheme.displaySmall,
               ),
               Text(
                 'Plays when eating, pauses when not',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.subtitle1,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
               Spacer(),
               _buildHowItWorks(context),
@@ -75,7 +75,7 @@ class AppIntroScreen extends StatelessWidget {
       children: [
         Text(
           'How it works',
-          style: Theme.of(context).textTheme.headline5,
+          style: Theme.of(context).textTheme.headlineMedium,
         ),
         SizedBox(height: 16),
         Text('Interval → Pause → Quick on-device check → Resume'),
@@ -88,7 +88,7 @@ class AppIntroScreen extends StatelessWidget {
       children: [
         Text(
           'Privacy & Safety',
-          style: Theme.of(context).textTheme.headline5,
+          style: Theme.of(context).textTheme.headlineMedium,
         ),
         SizedBox(height: 16),
         Text('• On-device analysis only'),

@@ -26,6 +26,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/models/movinet_a0_stream_float16.tflite
-    - assets/models/movinet_a0_stream_int.tflite
-    - assets/labels/kinetics_600_labels.txt
+    - assets/models/
+    - assets/labels/

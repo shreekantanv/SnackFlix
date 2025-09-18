@@ -25,11 +25,20 @@ class _ChildPlayerScreenState extends State<ChildPlayerScreen> {
   void initState() {
     super.initState();
     final videoId = YoutubePlayerController.convertUrlToId(
-      widget.videoUrl ?? 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      widget.videoUrl ?? '',
     );
 
+    if (videoId == null) {
+      // Handle invalid URL
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invalid YouTube URL.')),
+      );
+      Navigator.of(context).pop();
+      return;
+    }
+
     _controller = YoutubePlayerController(
-      initialVideoId: videoId!,
+      initialVideoId: videoId,
       params: YoutubePlayerParams(
         showControls: false,
         showFullscreenButton: false,

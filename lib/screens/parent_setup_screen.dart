@@ -107,7 +107,7 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Video Source', style: Theme.of(context).textTheme.headline6),
+        Text('Video Source', style: Theme.of(context).textTheme.titleLarge),
         SizedBox(height: 8),
         TextField(
           controller: _urlController,
@@ -139,7 +139,7 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Bite Interval: ${_biteInterval.toInt()}s',
-            style: Theme.of(context).textTheme.headline6),
+            style: Theme.of(context).textTheme.titleLarge),
         Slider(
           value: _biteInterval,
           min: 45,

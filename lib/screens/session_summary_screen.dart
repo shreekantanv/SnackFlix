@@ -54,8 +54,8 @@ class _SessionSummaryScreenState extends State<SessionSummaryScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: Theme.of(context).textTheme.subtitle1),
-          Text(value, style: Theme.of(context).textTheme.headline6),
+          Text(label, style: Theme.of(context).textTheme.titleMedium),
+          Text(value, style: Theme.of(context).textTheme.titleLarge),
         ],
       ),
     );
@@ -65,7 +65,7 @@ class _SessionSummaryScreenState extends State<SessionSummaryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Did SnackFlix help today?", style: Theme.of(context).textTheme.headline6),
+        Text("Did SnackFlix help today?", style: Theme.of(context).textTheme.titleLarge),
         SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,

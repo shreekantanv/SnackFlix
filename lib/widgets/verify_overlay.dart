@@ -39,7 +39,7 @@ class _VerifyOverlayState extends State<VerifyOverlay> with SingleTickerProvider
     _chewingDetectionService.loadModel();
     _initializeCamera();
     _manualContinueTimer = Timer(Duration(seconds: 15), () {
-      if(mounted) {
+      if (mounted) {
         setState(() {
           _showManualContinue = true;
         });
@@ -128,7 +128,7 @@ class _VerifyOverlayState extends State<VerifyOverlay> with SingleTickerProvider
         children: [
           Text(
             "Time for a bite!",
-            style: Theme.of(context).textTheme.headline4?.copyWith(color: Colors.white),
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.white),
           ),
           SizedBox(height: 20),
           _buildCameraPreview(),
