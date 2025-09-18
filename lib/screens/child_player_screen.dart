@@ -109,7 +109,7 @@ class _ChildPlayerScreenState extends State<ChildPlayerScreen> {
       body: Stack(
         children: [
           Center(
-            child: YoutubePlayerIFrame(
+            child: YoutubePlayer(
               controller: _controller,
               aspectRatio: 16 / 9,
             ),
