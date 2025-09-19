@@ -10,10 +10,7 @@ class ChewingDetectionService {
     try {
       final options = InterpreterOptions();
       final modelData = await rootBundle.load('assets/models/movinet_a0_stream_int.tflite');
-      _interpreter = Interpreter.create(
-        modelData.buffer.asUint8List(),
-        options: options,
-      );
+      _interpreter = await Interpreter.fromBuffer(modelData as Uint8List, options: options);
       _isInitialized = true;
     } catch (e) {
       print("Failed to load TFLite model: $e");
