@@ -1,58 +1,42 @@
-// lib/services/session_tracker.dart
-import 'package:flutter/foundation.dart';
+import 'package:hive/hive.dart';
+import 'package:snackflix/models/daily_metrics.dart';
+import 'package:snackflix/services/session_tracker.dart';
 
-class SessionMetrics {
-  final DateTime startedAt;
-  DateTime? endedAt;
+class MetricsService {
+  late Box<DailyMetrics> _metricsBox;
 
-  int promptsShown = 0;
-  int autoCleared = 0;
-  int manualOverrides = 0;
-
-  /// Stopwatch counts “active watch time” (we start/stop it when video plays/pauses).
-  final Stopwatch _watch = Stopwatch();
-
-  SessionMetrics() : startedAt = DateTime.now();
-
-  Duration get durationWatched => _watch.elapsed;
-
-  void markPlay()  { if (!_watch.isRunning) _watch.start(); }
-  void markPause() { if (_watch.isRunning) _watch.stop();  }
-
-  void end() {
-    markPause();
-    endedAt = DateTime.now();
+  Future<void> init() async {
+    _metricsBox = await Hive.openBox<DailyMetrics>('daily_metrics');
   }
 
-  Map<String, dynamic> toJson() => {
-    'startedAt': startedAt.toIso8601String(),
-    'endedAt': endedAt?.toIso8601String(),
-    'promptsShown': promptsShown,
-    'autoCleared': autoCleared,
-    'manualOverrides': manualOverrides,
-    'durationWatchedSec': durationWatched.inSeconds,
-  };
-}
+  Future<void> saveMetrics(SessionMetrics metrics) async {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
 
-class SessionTracker extends ChangeNotifier {
-  SessionMetrics? _m;
-  SessionMetrics get metrics => _m ??= SessionMetrics();
+    // Use a key for today's date to easily find it.
+    final key = todayDate.toIso8601String();
+    final dailyMetrics = _metricsBox.get(key) ?? DailyMetrics(date: todayDate);
 
-  void start() {
-    _m = SessionMetrics();
-    notifyListeners();
+    dailyMetrics.durationWatchedSec += metrics.durationWatchedSec;
+    dailyMetrics.promptsShown += metrics.promptsShown;
+    dailyMetrics.autoCleared += metrics.autoCleared;
+    dailyMetrics.manualOverrides += metrics.manualOverrides;
+
+    await _metricsBox.put(key, dailyMetrics);
   }
 
-  void end() {
-    _m?.end();
-    notifyListeners();
+  List<DailyMetrics> getMetricsForLastYear() {
+    final oneYearAgo = DateTime.now().subtract(const Duration(days: 365));
+    return _metricsBox.values.where((m) => m.date.isAfter(oneYearAgo)).toList();
   }
 
-  // Event helpers
-  void onVideoPlay()  { metrics.markPlay();  notifyListeners(); }
-  void onVideoPause() { metrics.markPause(); notifyListeners(); }
+  List<DailyMetrics> getMetricsForLastMonth() {
+    final oneMonthAgo = DateTime.now().subtract(const Duration(days: 30));
+    return _metricsBox.values.where((m) => m.date.isAfter(oneMonthAgo)).toList();
+  }
 
-  void onPromptShown()      { metrics.promptsShown++; notifyListeners(); }
-  void onPromptAutoClear()  { metrics.autoCleared++;  notifyListeners(); }
-  void onManualOverride()   { metrics.manualOverrides++; notifyListeners(); }
+  List<DailyMetrics> getMetricsForLastWeek() {
+    final oneWeekAgo = DateTime.now().subtract(const Duration(days: 7));
+    return _metricsBox.values.where((m) => m.date.isAfter(oneWeekAgo)).toList();
+  }
 }
