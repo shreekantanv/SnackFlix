@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:snackflix/l10n/app_localizations.dart';
 
 import '../services/metrics_service.dart';
+import '../services/session_tracker.dart';
 import '../utils/router.dart';
 import '../widgets/pre_flight_tips.dart';
 import '../widgets/verify_overlay.dart';

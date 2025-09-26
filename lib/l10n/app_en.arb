@@ -74,5 +74,9 @@
   "yes": "Yes",
   "aLittle": "A little",
   "no": "No",
-  "minAbbrev": "min"
+  "minAbbrev": "min",
+  "timespanSession": "This Session",
+  "timespanWeek": "Week",
+  "timespanMonth": "Month",
+  "timespanYear": "Year"
 }

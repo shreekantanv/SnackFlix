@@ -2,18 +2,80 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:snackflix/l10n/app_localizations.dart';
+import 'package:snackflix/models/daily_metrics.dart';
+import 'package:snackflix/services/session_tracker.dart';
 import 'package:snackflix/utils/router.dart';
 
 import '../services/metrics_service.dart';
 
-class SessionSummaryScreen extends StatelessWidget {
+enum StatTimespan { session, week, month, year }
+
+class SessionSummaryScreen extends StatefulWidget {
   const SessionSummaryScreen({super.key});
+
+  @override
+  State<SessionSummaryScreen> createState() => _SessionSummaryScreenState();
+}
+
+class _AggregatedMetrics {
+  final Duration durationWatched;
+  final int promptsShown;
+  final int autoCleared;
+  final int manualOverrides;
+
+  _AggregatedMetrics({
+    required this.durationWatched,
+    required this.promptsShown,
+    required this.autoCleared,
+    required this.manualOverrides,
+  });
+
+  factory _AggregatedMetrics.fromSessions(List<DailyMetrics> sessions) {
+    return _AggregatedMetrics(
+      durationWatched: sessions.fold(
+          Duration.zero,
+          (prev, s) => prev + Duration(seconds: s.durationWatchedSec)),
+      promptsShown: sessions.fold(0, (prev, s) => prev + s.promptsShown),
+      autoCleared: sessions.fold(0, (prev, s) => prev + s.autoCleared),
+      manualOverrides:
+          sessions.fold(0, (prev, s) => prev + s.manualOverrides),
+    );
+  }
+}
+
+_AggregatedMetrics _getMetricsForTimespan(
+    MetricsService metricsSvc, SessionMetrics sessionMetrics, StatTimespan span) {
+  switch (span) {
+    case StatTimespan.session:
+      return _AggregatedMetrics(
+        durationWatched: sessionMetrics.durationWatched,
+        promptsShown: sessionMetrics.promptsShown,
+        autoCleared: sessionMetrics.autoCleared,
+        manualOverrides: sessionMetrics.manualOverrides,
+      );
+    case StatTimespan.week:
+      return _AggregatedMetrics.fromSessions(
+          metricsSvc.getMetricsForLastWeek());
+    case StatTimespan.month:
+      return _AggregatedMetrics.fromSessions(
+          metricsSvc.getMetricsForLastMonth());
+    case StatTimespan.year:
+      return _AggregatedMetrics.fromSessions(
+          metricsSvc.getMetricsForLastYear());
+  }
+}
+
+class _SessionSummaryScreenState extends State<SessionSummaryScreen> {
+  StatTimespan _selectedSpan = StatTimespan.session;
 
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
-    final metrics = context.watch<SessionTracker>().metrics;
+    final metricsSvc = context.read<MetricsService>();
+    final sessionMetrics = context.watch<SessionTracker>().metrics;
+
+    final metrics = _getMetricsForTimespan(metricsSvc, sessionMetrics, _selectedSpan);
 
     String mins(Duration d) => '${d.inMinutes} ${t.minAbbrev}'; // "min"
 
@@ -26,6 +88,20 @@ class SessionSummaryScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           Text(t.sessionStatsHeader, style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<StatTimespan>(
+              segments: [
+                ButtonSegment(value: StatTimespan.session, label: Text(t.timespanSession)),
+                ButtonSegment(value: StatTimespan.week, label: Text(t.timespanWeek)),
+                ButtonSegment(value: StatTimespan.month, label: Text(t.timespanMonth)),
+                ButtonSegment(value: StatTimespan.year, label: Text(t.timespanYear)),
+              ],
+              selected: {_selectedSpan},
+              onSelectionChanged: (v) => setState(() => _selectedSpan = v.first),
+            ),
+          ),
           const SizedBox(height: 12),
           GridView.count(
             crossAxisCount: 2,
