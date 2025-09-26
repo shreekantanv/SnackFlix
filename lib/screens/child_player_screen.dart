@@ -1,35 +1,58 @@
-// imports...
-import 'package:flutter/cupertino.dart';
+import 'dart:async';
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:snackflix/l10n/app_localizations.dart';
-
-import '../services/metrics_service.dart';
+import 'package:snackflix/services/chewing_detection_service.dart';
+import 'package:snackflix/widgets/overlay_painter.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../services/session_tracker.dart';
 import '../utils/router.dart';
 import '../widgets/pre_flight_tips.dart';
-import '../widgets/verify_overlay.dart';
 
-import 'dart:async'; // <-- for Timer
-import 'package:youtube_player_iframe/youtube_player_iframe.dart'; // <-- add this
-
-class ChildPlayerScreen extends StatefulWidget {
+class ChildPlayerScreen extends StatelessWidget {
   final String? videoUrl;
   final double biteInterval;
+
   const ChildPlayerScreen({super.key, this.videoUrl, required this.biteInterval});
 
   @override
-  State<ChildPlayerScreen> createState() => _ChildPlayerScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => ChewingDetectionService(),
+      child: _ChildPlayerScreenContent(
+        videoUrl: videoUrl,
+        biteInterval: biteInterval,
+      ),
+    );
+  }
 }
 
-class _ChildPlayerScreenState extends State<ChildPlayerScreen> with WidgetsBindingObserver {
+class _ChildPlayerScreenContent extends StatefulWidget {
+  final String? videoUrl;
+  final double biteInterval;
+
+  const _ChildPlayerScreenContent({this.videoUrl, required this.biteInterval});
+
+  @override
+  State<_ChildPlayerScreenContent> createState() => _ChildPlayerScreenContentState();
+}
+
+class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> with WidgetsBindingObserver {
   late YoutubePlayerController _controller;
-  Timer? _verificationTimer;
+  late final ChewingDetectionService _chewingService;
+  Timer? _pauseDwell;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    _chewingService = context.read<ChewingDetectionService>();
+    _chewingService.initialize().then((_) {
+      if (mounted) setState(() {});
+    });
+    _chewingService.addListener(_onChewingStateChanged);
 
     final videoId = YoutubePlayerController.convertUrlToId(widget.videoUrl ?? '');
     if (videoId == null) {
@@ -41,25 +64,52 @@ class _ChildPlayerScreenState extends State<ChildPlayerScreen> with WidgetsBindi
       return;
     }
 
-    _controller = YoutubePlayerController(
-      params: const YoutubePlayerParams(showControls: false, showFullscreenButton: false),
+    _controller = YoutubePlayerController.fromVideoId(
+      videoId: videoId,
+      params: const YoutubePlayerParams(
+        showControls: true,
+        showFullscreenButton: true,
+      ),
     );
 
-    // Start counting as soon as playback begins
     context.read<SessionTracker>().onVideoPlay();
-
     WidgetsBinding.instance.addPostFrameCallback((_) => _showPreFlightTips());
-    _startVerificationTimer(Duration(seconds: widget.biteInterval.toInt()));
+  }
+
+  void _onChewingStateChanged() {
+    final eating = _chewingService.state == EatState.chewing || _chewingService.state == EatState.grace;
+    _applyDecision(eating);
+    setState(() {}); // To rebuild UI with new status, confidence, etc.
+  }
+
+  void _applyDecision(bool eating) {
+    if (eating) {
+      _pauseDwell?.cancel();
+      _pauseDwell = null;
+      if (_controller.value.playerState != PlayerState.playing) {
+        _controller.playVideo();
+        context.read<SessionTracker>().onVideoPlay();
+      }
+    } else {
+      _pauseDwell ??= Timer(const Duration(seconds: 2), () {
+        if (_controller.value.playerState == PlayerState.playing) {
+          _controller.pauseVideo();
+          context.read<SessionTracker>().onVideoPause();
+        }
+      });
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final tracker = context.read<SessionTracker>();
     if (state == AppLifecycleState.paused) {
       _controller.pauseVideo();
-      tracker.onVideoPause();
+      context.read<SessionTracker>().onVideoPause();
+      _chewingService.dispose();
     } else if (state == AppLifecycleState.resumed) {
-      // Do not auto-play; wait for verification overlay to clear.
+      _chewingService.initialize().then((_) {
+        if (mounted) setState(() {});
+      });
     }
   }
 
@@ -67,48 +117,12 @@ class _ChildPlayerScreenState extends State<ChildPlayerScreen> with WidgetsBindi
     showDialog(context: context, barrierDismissible: false, builder: (_) => const PreFlightTips());
   }
 
-  void _startVerificationTimer(Duration interval) {
-    _verificationTimer?.cancel();
-    _verificationTimer = Timer.periodic(interval, (_) {
-      final tracker = context.read<SessionTracker>();
-      _controller.pauseVideo();
-      tracker.onVideoPause();
-      tracker.onPromptShown();
-      _showVerificationOverlay();
-    });
-  }
-
-  void _showVerificationOverlay() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (context) => VerifyOverlay(
-          onVerificationSuccess: () {
-            Navigator.of(context).pop();
-            context.read<SessionTracker>().onVideoPlay();
-            _controller.playVideo();
-            // If your overlay auto-dismisses because kid is eating, call onPromptAutoClear there.
-          },
-          onManualContinue: () {
-            Navigator.of(context).pop();
-            final tracker = context.read<SessionTracker>();
-            tracker.onManualOverride();
-            tracker.onVideoPlay();
-            _controller.playVideo();
-          },
-        ),
-      ),
-    );
-  }
-
   Future<void> _endSession() async {
-    // stop timers + video
-    _verificationTimer?.cancel();
+    _pauseDwell?.cancel();
     _controller.pauseVideo();
     context.read<SessionTracker>().onVideoPause();
     context.read<SessionTracker>().end();
 
-    // go to summary
     if (!mounted) return;
     Navigator.pushReplacementNamed(
       context,
@@ -123,7 +137,9 @@ class _ChildPlayerScreenState extends State<ChildPlayerScreen> with WidgetsBindi
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _verificationTimer?.cancel();
+    _chewingService.removeListener(_onChewingStateChanged);
+    _chewingService.dispose();
+    _pauseDwell?.cancel();
     _controller.close();
     super.dispose();
   }
@@ -131,13 +147,35 @@ class _ChildPlayerScreenState extends State<ChildPlayerScreen> with WidgetsBindi
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
+    final chewingService = context.watch<ChewingDetectionService>();
+    final eating = chewingService.status.startsWith('Eating');
+
     return WillPopScope(
       onWillPop: () async => false, // block back
       child: Scaffold(
+        backgroundColor: Colors.black,
         appBar: AppBar(
           automaticallyImplyLeading: false,
           title: Text(t.playbackTitle), // "Now Playing"
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
           actions: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: (eating ? Colors.green : Colors.red).withOpacity(.15),
+                border: Border.all(color: eating ? Colors.green : Colors.red),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                chewingService.status,
+                style: TextStyle(
+                  color: eating ? Colors.green : Colors.red,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
             TextButton(
               onPressed: _endSession,
               child: Text(t.endSessionCta), // "End session"
@@ -147,7 +185,77 @@ class _ChildPlayerScreenState extends State<ChildPlayerScreen> with WidgetsBindi
         body: Stack(
           children: [
             Center(child: YoutubePlayer(controller: _controller, aspectRatio: 16 / 9)),
-            // Keep your hidden long-press exit if you like.
+            // Camera tile
+            Positioned(
+              top: 16,
+              right: 16,
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: eating ? Colors.green : Colors.red, width: 3),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(.5), blurRadius: 10)],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: 180,
+                    height: 240,
+                    child: Stack(
+                      children: [
+                        if (chewingService.isCameraReady && chewingService.cameraController != null)
+                          CameraPreview(chewingService.cameraController!)
+                        else
+                          const ColoredBox(color: Colors.black12),
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: CustomPaint(
+                              painter: OverlayPainter(
+                                mouthBox: chewingService.mouthBoxLast,
+                                dets: chewingService.visBoxes,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Confidence + cues
+            Positioned(
+              top: 268,
+              right: 16,
+              width: 180,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                decoration: BoxDecoration(
+                  color: (eating ? Colors.green : Colors.red).withOpacity(.9),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: DefaultTextStyle(
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Conf: ${(chewingService.confidence * 100).toStringAsFixed(0)}%'),
+                      const SizedBox(height: 4),
+                      LinearProgressIndicator(
+                        value: chewingService.confidence,
+                        backgroundColor: Colors.white30,
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                        minHeight: 3,
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Approach: ${(chewingService.approachScore * 100).toStringAsFixed(0)}%'),
+                      Text('Teeth: ${(chewingService.teethScore * 100).toStringAsFixed(0)}%'),
+                      Text('State: ${chewingService.state.name}'),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
