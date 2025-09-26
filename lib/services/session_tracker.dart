@@ -26,7 +26,10 @@ class SessionMetrics extends HiveObject {
   @HiveField(5)
   int durationWatchedSec = 0;
 
-  SessionMetrics() : startedAt = DateTime.now();
+  @HiveField(6)
+  String? url;
+
+  SessionMetrics({this.url}) : startedAt = DateTime.now();
 
   Duration get durationWatched => Duration(seconds: durationWatchedSec);
 
@@ -52,8 +55,8 @@ class SessionTracker extends ChangeNotifier {
 
   SessionTracker(this._metricsService);
 
-  void start() {
-    _m = SessionMetrics();
+  void start({String? url}) {
+    _m = SessionMetrics(url: url);
     _watch.reset();
     _watch.start();
   }

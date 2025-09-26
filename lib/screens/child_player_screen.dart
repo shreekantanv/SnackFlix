@@ -77,7 +77,7 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
       _chewingService.initialize().then((_) {
         if (mounted) setState(() {});
       });
-      context.read<SessionTracker>().onVideoPlay();
+      context.read<SessionTracker>().start(url: widget.videoUrl);
       _showPreFlightTips();
     });
   }
