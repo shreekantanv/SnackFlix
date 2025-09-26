@@ -78,5 +78,24 @@
   "timespanSession": "This Session",
   "timespanWeek": "Week",
   "timespanMonth": "Month",
-  "timespanYear": "Year"
+  "timespanYear": "Year",
+  "homeTab": "Home",
+  "historyTab": "History",
+  "settingsTab": "Settings",
+  "done": "Done",
+  "noHistoryMessage": "No session history... yet!",
+  "historyListItemSubtitle": "Watched for {duration} min, {prompts} prompts",
+  "@historyListItemSubtitle": {
+    "placeholders": {
+      "duration": {
+        "type": "int"
+      },
+      "prompts": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsThemeToggle": "Dark Mode",
+  "settingsThemeLight": "Using light theme",
+  "settingsThemeDark": "Using dark theme"
 }
