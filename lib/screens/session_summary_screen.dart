@@ -35,7 +35,7 @@ class SessionSummaryScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                 children: [
                   if (metrics.url != null && metrics.url!.isNotEmpty) ...[
-                    Text('Video Watched',
+                    Text(t.videoWatchedTitle,
                         style: Theme.of(context).textTheme.headlineSmall),
                     const SizedBox(height: 8),
                     Text(metrics.url!,

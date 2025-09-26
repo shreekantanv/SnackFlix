@@ -122,5 +122,6 @@
         "type": "int"
       }
     }
-  }
+  },
+  "videoWatchedTitle": "Video Watched"
 }
