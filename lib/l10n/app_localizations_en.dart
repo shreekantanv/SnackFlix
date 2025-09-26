@@ -235,4 +235,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get minAbbrev => 'min';
+
+  @override
+  String get timespanSession => 'This Session';
+
+  @override
+  String get timespanWeek => 'Week';
+
+  @override
+  String get timespanMonth => 'Month';
+
+  @override
+  String get timespanYear => 'Year';
 }

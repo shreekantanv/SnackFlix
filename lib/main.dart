@@ -31,18 +31,16 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 👇 Provide app-wide state above MaterialApp
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(
-          create: (context) =>
-              SessionTracker(context.read<MetricsService>())..start(),
-        ),
-        Provider<MetricsService>.value(value: metricsService),
-      ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
+    return Provider<MetricsService>.value(
+      value: metricsService,
+      child: ChangeNotifierProvider(
+        create: (context) =>
+            SessionTracker(context.read<MetricsService>())..start(),
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
 
-        onGenerateTitle: (ctx) => AppLocalizations.of(ctx)?.appName ?? 'SnackFlix',
+          onGenerateTitle:
+              (ctx) => AppLocalizations.of(ctx)?.appName ?? 'SnackFlix',
 
         theme: AppThemes.lightTheme,
         darkTheme: AppThemes.darkTheme,

@@ -548,6 +548,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'min'**
   String get minAbbrev;
+
+  /// No description provided for @timespanSession.
+  ///
+  /// In en, this message translates to:
+  /// **'This Session'**
+  String get timespanSession;
+
+  /// No description provided for @timespanWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Week'**
+  String get timespanWeek;
+
+  /// No description provided for @timespanMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Month'**
+  String get timespanMonth;
+
+  /// No description provided for @timespanYear.
+  ///
+  /// In en, this message translates to:
+  /// **'Year'**
+  String get timespanYear;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
