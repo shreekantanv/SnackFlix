@@ -12,6 +12,8 @@
         "flutter_localizations",
         "google_mlkit_commons",
         "google_mlkit_face_detection",
+        "google_mlkit_object_detection",
+        "google_mlkit_pose_detection",
         "hive",
         "hive_flutter",
         "intl",
@@ -186,6 +188,22 @@
       ]
     },
     {
+      "name": "google_mlkit_pose_detection",
+      "version": "0.14.0",
+      "dependencies": [
+        "flutter",
+        "google_mlkit_commons"
+      ]
+    },
+    {
+      "name": "google_mlkit_object_detection",
+      "version": "0.15.0",
+      "dependencies": [
+        "flutter",
+        "google_mlkit_commons"
+      ]
+    },
+    {
       "name": "google_mlkit_face_detection",
       "version": "0.13.1",
       "dependencies": [
@@ -195,7 +213,7 @@
     },
     {
       "name": "permission_handler",
-      "version": "11.4.0",
+      "version": "12.0.1",
       "dependencies": [
         "flutter",
         "meta",
@@ -762,7 +780,7 @@
     },
     {
       "name": "url_launcher_android",
-      "version": "6.3.21",
+      "version": "6.3.22",
       "dependencies": [
         "flutter",
         "url_launcher_platform_interface"
@@ -824,7 +842,7 @@
     },
     {
       "name": "permission_handler_android",
-      "version": "12.1.0",
+      "version": "13.0.1",
       "dependencies": [
         "flutter",
         "permission_handler_platform_interface"
@@ -850,7 +868,7 @@
     },
     {
       "name": "camera_platform_interface",
-      "version": "2.10.0",
+      "version": "2.11.0",
       "dependencies": [
         "cross_file",
         "flutter",
@@ -860,7 +878,7 @@
     },
     {
       "name": "camera_avfoundation",
-      "version": "0.9.21+2",
+      "version": "0.9.21+3",
       "dependencies": [
         "camera_platform_interface",
         "flutter",
@@ -869,7 +887,7 @@
     },
     {
       "name": "camera_android_camerax",
-      "version": "0.6.21",
+      "version": "0.6.21+1",
       "dependencies": [
         "async",
         "camera_platform_interface",
@@ -897,7 +915,7 @@
     },
     {
       "name": "webview_flutter_wkwebview",
-      "version": "3.23.0",
+      "version": "3.23.1",
       "dependencies": [
         "flutter",
         "meta",

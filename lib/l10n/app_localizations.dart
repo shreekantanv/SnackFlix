@@ -626,6 +626,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Using dark theme'**
   String get settingsThemeDark;
+
+  /// No description provided for @settingsBatterySaverToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery Saver'**
+  String get settingsBatterySaverToggle;
+
+  /// No description provided for @settingsBatterySaverEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled: Lower camera quality to save battery'**
+  String get settingsBatterySaverEnabled;
+
+  /// No description provided for @settingsBatterySaverDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled: Highest camera quality'**
+  String get settingsBatterySaverDisabled;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

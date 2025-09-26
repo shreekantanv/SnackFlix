@@ -276,4 +276,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsThemeDark => 'Using dark theme';
+
+  @override
+  String get settingsBatterySaverToggle => 'Battery Saver';
+
+  @override
+  String get settingsBatterySaverEnabled => 'Enabled: Lower camera quality to save battery';
+
+  @override
+  String get settingsBatterySaverDisabled => 'Disabled: Highest camera quality';
 }
