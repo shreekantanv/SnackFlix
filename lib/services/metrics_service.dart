@@ -28,4 +28,16 @@ class MetricsService {
   List<DailyMetrics> getAllMetrics() {
     return _metricsBox.values.toList();
   }
+
+  List<DailyMetrics> getMetricsForLastDays(int days) {
+    final today = DateTime.now();
+    final startDate = today.subtract(Duration(days: days - 1));
+    final startDateOnly = DateTime(startDate.year, startDate.month, startDate.day);
+
+    return _metricsBox.values.where((metrics) {
+      final metricsDate = metrics.date;
+      return metricsDate.isAfter(startDateOnly) ||
+          metricsDate.isAtSameMomentAs(startDateOnly);
+    }).toList();
+  }
 }
