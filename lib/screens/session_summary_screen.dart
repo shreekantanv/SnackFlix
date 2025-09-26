@@ -34,6 +34,14 @@ class SessionSummaryScreen extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                 children: [
+                  if (metrics.url != null && metrics.url!.isNotEmpty) ...[
+                    Text('Video Watched',
+                        style: Theme.of(context).textTheme.headlineSmall),
+                    const SizedBox(height: 8),
+                    Text(metrics.url!,
+                        style: Theme.of(context).textTheme.bodyLarge),
+                    const SizedBox(height: 24),
+                  ],
                   Text(t.sessionStatsHeader,
                       style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 12),

@@ -60,9 +60,8 @@ class HistoryScreen extends StatelessWidget {
   }
 
   Widget _buildHeader(AppLocalizations t, SessionMetrics latestSession) {
-    final videoId = YoutubePlayerController.convertUrlToId(latestSession.url ?? '');
-    // In a real app, we'd fetch the video title. For now, just show the ID.
-    final title = videoId ?? 'Stitch - Design with AI';
+    // In a real app, we'd fetch the video title. For now, just show the URL.
+    final title = latestSession.url ?? 'No URL Recorded';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
