@@ -39,24 +39,25 @@ class MyApp extends StatelessWidget {
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
 
-          onGenerateTitle:
-              (ctx) => AppLocalizations.of(ctx)?.appName ?? 'SnackFlix',
+          onGenerateTitle: (ctx) =>
+              AppLocalizations.of(ctx)?.appName ?? 'SnackFlix',
 
-        theme: AppThemes.lightTheme,
-        darkTheme: AppThemes.darkTheme,
-        themeMode: ThemeMode.system,
+          theme: AppThemes.lightTheme,
+          darkTheme: AppThemes.darkTheme,
+          themeMode: ThemeMode.system,
 
-        onGenerateRoute: AppRouter.generateRoute,
-        home: const AppIntroScreen(),
+          onGenerateRoute: AppRouter.generateRoute,
+          home: const AppIntroScreen(),
 
-        // 🔤 Localization
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
+          // 🔤 Localization
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
       ),
     );
   }

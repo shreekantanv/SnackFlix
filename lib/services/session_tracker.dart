@@ -2,6 +2,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 
+import 'metrics_service.dart';
+
 part 'session_tracker.g.dart';
 
 @HiveType(typeId: 0)
@@ -41,8 +43,6 @@ class SessionMetrics extends HiveObject {
     'durationWatchedSec': durationWatched.inSeconds,
   };
 }
-
-import 'package:snackflix/services/metrics_service.dart';
 
 class SessionTracker extends ChangeNotifier {
   SessionMetrics? _m;
