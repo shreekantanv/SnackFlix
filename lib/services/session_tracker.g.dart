@@ -3,7 +3,7 @@
 part of 'session_tracker.dart';
 
 // **************************************************************************
-// HiveTypeGenerator
+// TypeAdapterGenerator
 // **************************************************************************
 
 class SessionMetricsAdapter extends TypeAdapter<SessionMetrics> {

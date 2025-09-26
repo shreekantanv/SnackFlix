@@ -17,26 +17,15 @@ class MetricsService {
     final key = todayDate.toIso8601String();
     final dailyMetrics = _metricsBox.get(key) ?? DailyMetrics(date: todayDate);
 
-    dailyMetrics.durationWatchedSec += metrics.durationWatchedSec;
-    dailyMetrics.promptsShown += metrics.promptsShown;
-    dailyMetrics.autoCleared += metrics.autoCleared;
-    dailyMetrics.manualOverrides += metrics.manualOverrides;
+    // Add the new session to the list
+    dailyMetrics.sessions.add(metrics);
 
+    // Save the updated daily metrics
     await _metricsBox.put(key, dailyMetrics);
   }
 
-  List<DailyMetrics> getMetricsForLastYear() {
-    final oneYearAgo = DateTime.now().subtract(const Duration(days: 365));
-    return _metricsBox.values.where((m) => m.date.isAfter(oneYearAgo)).toList();
-  }
-
-  List<DailyMetrics> getMetricsForLastMonth() {
-    final oneMonthAgo = DateTime.now().subtract(const Duration(days: 30));
-    return _metricsBox.values.where((m) => m.date.isAfter(oneMonthAgo)).toList();
-  }
-
-  List<DailyMetrics> getMetricsForLastWeek() {
-    final oneWeekAgo = DateTime.now().subtract(const Duration(days: 7));
-    return _metricsBox.values.where((m) => m.date.isAfter(oneWeekAgo)).toList();
+  // Method to get all metrics for the history screen
+  List<DailyMetrics> getAllMetrics() {
+    return _metricsBox.values.toList();
   }
 }

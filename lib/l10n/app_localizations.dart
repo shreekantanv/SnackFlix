@@ -572,6 +572,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Year'**
   String get timespanYear;
+
+  /// No description provided for @homeTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get homeTab;
+
+  /// No description provided for @historyTab.
+  ///
+  /// In en, this message translates to:
+  /// **'History'**
+  String get historyTab;
+
+  /// No description provided for @settingsTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTab;
+
+  /// No description provided for @done.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get done;
+
+  /// No description provided for @noHistoryMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'No session history... yet!'**
+  String get noHistoryMessage;
+
+  /// No description provided for @historyListItemSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Watched for {duration} min, {prompts} prompts'**
+  String historyListItemSubtitle(int duration, int prompts);
+
+  /// No description provided for @settingsThemeToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark Mode'**
+  String get settingsThemeToggle;
+
+  /// No description provided for @settingsThemeLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Using light theme'**
+  String get settingsThemeLight;
+
+  /// No description provided for @settingsThemeDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Using dark theme'**
+  String get settingsThemeDark;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
