@@ -7,14 +7,12 @@ import 'package:snackflix/models/daily_metrics.dart';
 import 'package:snackflix/services/metrics_service.dart';
 import 'package:snackflix/services/session_tracker.dart';
 import 'package:snackflix/utils/router.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 class HistoryScreen extends StatelessWidget {
   const HistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext
-      .context) {
+  Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
     final metricsSvc = context.watch<MetricsService>();
     final allMetrics = metricsSvc.getAllMetrics();
@@ -60,8 +58,6 @@ class HistoryScreen extends StatelessWidget {
   }
 
   Widget _buildHeader(AppLocalizations t, SessionMetrics latestSession) {
-    // In a real app, we'd fetch the video title. For now, just show the URL.
-    final title = latestSession.url ?? 'No URL Recorded';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,11 +66,6 @@ class HistoryScreen extends StatelessWidget {
         const SizedBox(height: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade200,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey.shade800)),
         ),
       ],
     );

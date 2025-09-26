@@ -285,4 +285,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsBatterySaverDisabled => 'Disabled: Highest camera quality';
+
+  @override
+  String get watchTimeHistoryTitle => 'Watch Time History';
+
+  @override
+  String get durationWatchedTitle => 'Duration Watched';
+
+  @override
+  String minutes(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String get last7Days => 'Last 7 Days';
+
+  @override
+  String get pastSessionsTitle => 'Past Sessions';
+
+  @override
+  String get today => 'Today';
+
+  @override
+  String get yesterday => 'Yesterday';
+
+  @override
+  String daysAgo(int count) {
+    return '$count days ago';
+  }
+
+  @override
+  String get videoWatchedTitle => 'Video Watched';
 }
