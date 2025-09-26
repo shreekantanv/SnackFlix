@@ -247,4 +247,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get timespanYear => 'Year';
+
+  @override
+  String get homeTab => 'Home';
+
+  @override
+  String get historyTab => 'History';
+
+  @override
+  String get settingsTab => 'Settings';
+
+  @override
+  String get done => 'Done';
+
+  @override
+  String get noHistoryMessage => 'No session history... yet!';
+
+  @override
+  String historyListItemSubtitle(int duration, int prompts) {
+    return 'Watched for $duration min, $prompts prompts';
+  }
+
+  @override
+  String get settingsThemeToggle => 'Dark Mode';
+
+  @override
+  String get settingsThemeLight => 'Using light theme';
+
+  @override
+  String get settingsThemeDark => 'Using dark theme';
 }

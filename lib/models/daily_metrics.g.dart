@@ -3,7 +3,7 @@
 part of 'daily_metrics.dart';
 
 // **************************************************************************
-// HiveTypeGenerator
+// TypeAdapterGenerator
 // **************************************************************************
 
 class DailyMetricsAdapter extends TypeAdapter<DailyMetrics> {
@@ -18,27 +18,18 @@ class DailyMetricsAdapter extends TypeAdapter<DailyMetrics> {
     };
     return DailyMetrics(
       date: fields[0] as DateTime,
-    )
-      ..durationWatchedSec = fields[1] as int
-      ..promptsShown = fields[2] as int
-      ..autoCleared = fields[3] as int
-      ..manualOverrides = fields[4] as int;
+      sessions: (fields[1] as List?)?.cast<SessionMetrics>(),
+    );
   }
 
   @override
   void write(BinaryWriter writer, DailyMetrics obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(2)
       ..writeByte(0)
       ..write(obj.date)
       ..writeByte(1)
-      ..write(obj.durationWatchedSec)
-      ..writeByte(2)
-      ..write(obj.promptsShown)
-      ..writeByte(3)
-      ..write(obj.autoCleared)
-      ..writeByte(4)
-      ..write(obj.manualOverrides);
+      ..write(obj.sessions);
   }
 
   @override

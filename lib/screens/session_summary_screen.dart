@@ -3,6 +3,8 @@ import 'package:snackflix/l10n/app_localizations.dart';
 import 'package:snackflix/models/daily_metrics.dart';
 import 'package:snackflix/utils/router.dart';
 
+import '../services/session_tracker.dart';
+
 class SessionSummaryScreen extends StatelessWidget {
   final SessionMetrics metrics;
   final bool isPostSession;

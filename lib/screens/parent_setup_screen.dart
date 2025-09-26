@@ -261,7 +261,6 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
     );
   }
   }
-}
 
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
