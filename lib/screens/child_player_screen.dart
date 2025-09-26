@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:snackflix/l10n/app_localizations.dart';
 import 'package:snackflix/services/chewing_detection_service.dart';
+import 'package:snackflix/services/settings_service.dart';
 import 'package:snackflix/widgets/overlay_painter.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../services/session_tracker.dart';
@@ -18,8 +19,11 @@ class ChildPlayerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<SettingsService>();
     return ChangeNotifierProvider(
-      create: (_) => ChewingDetectionService(),
+      create: (_) => ChewingDetectionService(
+        batterySaverEnabled: settings.batterySaverEnabled,
+      ),
       child: _ChildPlayerScreenContent(
         videoUrl: videoUrl,
         biteInterval: biteInterval,

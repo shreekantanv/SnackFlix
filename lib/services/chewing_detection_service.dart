@@ -11,7 +11,6 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 // Tunables from the user's code
-const bool _BATTERY_SAVER = true;
 const int _FACE_IDLE_EVERY = 8;
 const int _FACE_APPROACH_EVERY = 2;
 const int _FACE_EAT_EVERY = 4;
@@ -79,6 +78,8 @@ class DetVis {
 }
 
 class ChewingDetectionService extends ChangeNotifier {
+  final bool batterySaverEnabled;
+
   // Camera + hot-swap guards
   CameraController? _cam;
   CameraController? get cameraController => _cam;
@@ -88,9 +89,13 @@ class ChewingDetectionService extends ChangeNotifier {
 
   int _camGen = 0;
   bool _restartingCam = false;
-  ResolutionPreset _currentPreset = _BATTERY_SAVER ? ResolutionPreset.medium : ResolutionPreset.high;
+  late ResolutionPreset _currentPreset;
   int _frameCounter = 0;
   bool _busy = false;
+
+  ChewingDetectionService({required this.batterySaverEnabled}) {
+    _currentPreset = batterySaverEnabled ? ResolutionPreset.medium : ResolutionPreset.high;
+  }
 
   // Models
   late final FaceDetector _faces = FaceDetector(
@@ -428,7 +433,7 @@ class ChewingDetectionService extends ChangeNotifier {
         _faceEvery = _FACE_IDLE_EVERY;
         _objEvery = 9999;
         _poseEvery = _POSE_IDLE_EVERY;
-        if (_BATTERY_SAVER) {
+        if (batterySaverEnabled) {
           _ensurePreset(ResolutionPreset.medium);
         }
         break;
@@ -436,7 +441,7 @@ class ChewingDetectionService extends ChangeNotifier {
         _faceEvery = _FACE_APPROACH_EVERY;
         _objEvery = _OBJ_APPROACH_EVERY;
         _poseEvery = _POSE_APPROACH_EVERY;
-        if (_BATTERY_SAVER) {
+        if (batterySaverEnabled) {
           _ensurePreset(ResolutionPreset.high);
         }
         break;
@@ -450,7 +455,7 @@ class ChewingDetectionService extends ChangeNotifier {
         _faceEvery = _FACE_EAT_EVERY;
         _objEvery = 9999;
         _poseEvery = 9999;
-        if (_BATTERY_SAVER) {
+        if (batterySaverEnabled) {
           _ensurePreset(ResolutionPreset.medium);
         }
         break;

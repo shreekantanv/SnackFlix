@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:snackflix/models/daily_metrics.dart';
 import 'package:snackflix/services/metrics_service.dart';
 import 'package:snackflix/services/session_tracker.dart';
-import 'package:snackflix/services/theme_notifier.dart';
+import 'package:snackflix/services/settings_service.dart';
 import 'package:snackflix/utils/app_themes.dart';
 import 'package:snackflix/utils/router.dart';
 import 'package:snackflix/screens/main_screen.dart';
@@ -20,14 +20,18 @@ Future<void> main() async {
   Hive.registerAdapter(DailyMetricsAdapter());
   // Clear the box to handle data migration issues during development
   await Hive.deleteBoxFromDisk('daily_metrics');
+
   final metricsService = MetricsService();
   await metricsService.init();
+
+  final settingsService = SettingsService();
+  await settingsService.init();
 
   runApp(
     MultiProvider(
       providers: [
         Provider<MetricsService>.value(value: metricsService),
-        ChangeNotifierProvider(create: (_) => ThemeNotifier()),
+        ChangeNotifierProvider.value(value: settingsService),
         ChangeNotifierProvider(
           create: (context) =>
               SessionTracker(context.read<MetricsService>())..start(),
@@ -43,15 +47,15 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeNotifier>(
-      builder: (context, themeNotifier, child) {
+    return Consumer<SettingsService>(
+      builder: (context, settingsService, child) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           onGenerateTitle: (ctx) =>
               AppLocalizations.of(ctx)?.appName ?? 'SnackFlix',
           theme: AppThemes.lightTheme,
           darkTheme: AppThemes.darkTheme,
-          themeMode: themeNotifier.themeMode,
+          themeMode: settingsService.themeMode,
           onGenerateRoute: AppRouter.generateRoute,
           home: const MainScreen(),
           localizationsDelegates: const [

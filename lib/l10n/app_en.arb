@@ -97,5 +97,8 @@
   },
   "settingsThemeToggle": "Dark Mode",
   "settingsThemeLight": "Using light theme",
-  "settingsThemeDark": "Using dark theme"
+  "settingsThemeDark": "Using dark theme",
+  "settingsBatterySaverToggle": "Battery Saver",
+  "settingsBatterySaverEnabled": "Enabled: Lower camera quality to save battery",
+  "settingsBatterySaverDisabled": "Disabled: Highest camera quality"
 }
