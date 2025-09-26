@@ -16,7 +16,9 @@ class SessionMetricsAdapter extends TypeAdapter<SessionMetrics> {
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return SessionMetrics()
+    return SessionMetrics(
+      url: fields[6] as String?,
+    )
       ..endedAt = fields[1] as DateTime?
       ..promptsShown = fields[2] as int
       ..autoCleared = fields[3] as int
@@ -27,7 +29,7 @@ class SessionMetricsAdapter extends TypeAdapter<SessionMetrics> {
   @override
   void write(BinaryWriter writer, SessionMetrics obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.startedAt)
       ..writeByte(1)
@@ -39,7 +41,9 @@ class SessionMetricsAdapter extends TypeAdapter<SessionMetrics> {
       ..writeByte(4)
       ..write(obj.manualOverrides)
       ..writeByte(5)
-      ..write(obj.durationWatchedSec);
+      ..write(obj.durationWatchedSec)
+      ..writeByte(6)
+      ..write(obj.url);
   }
 
   @override

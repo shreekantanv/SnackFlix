@@ -77,7 +77,7 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
       _chewingService.initialize().then((_) {
         if (mounted) setState(() {});
       });
-      context.read<SessionTracker>().onVideoPlay();
+      context.read<SessionTracker>().start(url: widget.videoUrl);
       _showPreFlightTips();
     });
   }
@@ -208,8 +208,21 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
                     height: 240,
                     child: Stack(
                       children: [
-                        if (chewingService.isCameraReady && chewingService.cameraController != null)
-                          CameraPreview(chewingService.cameraController!)
+                        if (chewingService.isCameraReady &&
+                            chewingService.cameraController != null)
+                          SizedBox.expand(
+                            child: FittedBox(
+                              fit: BoxFit.cover,
+                              child: SizedBox(
+                                width: chewingService
+                                    .cameraController!.value.previewSize!.height,
+                                height: chewingService
+                                    .cameraController!.value.previewSize!.width,
+                                child: CameraPreview(
+                                    chewingService.cameraController!),
+                              ),
+                            ),
+                          )
                         else
                           const ColoredBox(color: Colors.black12),
                         Positioned.fill(

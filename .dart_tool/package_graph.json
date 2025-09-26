@@ -8,6 +8,7 @@
       "version": "1.0.0+1",
       "dependencies": [
         "camera",
+        "fl_chart",
         "flutter",
         "flutter_localizations",
         "google_mlkit_commons",
@@ -256,6 +257,14 @@
         "webview_flutter_android",
         "webview_flutter_wkwebview",
         "youtube_player_iframe_web"
+      ]
+    },
+    {
+      "name": "fl_chart",
+      "version": "0.68.0",
+      "dependencies": [
+        "equatable",
+        "flutter"
       ]
     },
     {
@@ -940,6 +949,14 @@
         "webview_flutter_android",
         "webview_flutter_platform_interface",
         "webview_flutter_wkwebview"
+      ]
+    },
+    {
+      "name": "equatable",
+      "version": "2.0.7",
+      "dependencies": [
+        "collection",
+        "meta"
       ]
     },
     {

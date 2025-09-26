@@ -644,6 +644,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Disabled: Highest camera quality'**
   String get settingsBatterySaverDisabled;
+
+  /// No description provided for @watchTimeHistoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch Time History'**
+  String get watchTimeHistoryTitle;
+
+  /// No description provided for @durationWatchedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration Watched'**
+  String get durationWatchedTitle;
+
+  /// No description provided for @minutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min'**
+  String minutes(int minutes);
+
+  /// No description provided for @last7Days.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 7 Days'**
+  String get last7Days;
+
+  /// No description provided for @pastSessionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Past Sessions'**
+  String get pastSessionsTitle;
+
+  /// No description provided for @today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get today;
+
+  /// No description provided for @yesterday.
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get yesterday;
+
+  /// No description provided for @daysAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} days ago'**
+  String daysAgo(int count);
+
+  /// No description provided for @videoWatchedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Video Watched'**
+  String get videoWatchedTitle;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
