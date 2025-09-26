@@ -76,8 +76,10 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
       ),
     );
 
-    context.read<SessionTracker>().onVideoPlay();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _showPreFlightTips());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SessionTracker>().onVideoPlay();
+      _showPreFlightTips();
+    });
   }
 
   void _onChewingStateChanged() {
