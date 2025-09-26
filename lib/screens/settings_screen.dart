@@ -35,7 +35,7 @@ class SettingsScreen extends StatelessWidget {
           onChanged: (value) {
             settings.setBatterySaver(value);
           },
-          secondary: const Icon(Icons.battery_saving_outlined),
+          secondary: const Icon(Icons.battery_saver_outlined),
         ),
       ],
     );
