@@ -18,6 +18,8 @@ Future<void> main() async {
   await Hive.initFlutter(appDocumentDir.path);
   Hive.registerAdapter(SessionMetricsAdapter());
   Hive.registerAdapter(DailyMetricsAdapter());
+  // Clear the box to handle data migration issues during development
+  await Hive.deleteBoxFromDisk('daily_metrics');
   final metricsService = MetricsService();
   await metricsService.init();
 
