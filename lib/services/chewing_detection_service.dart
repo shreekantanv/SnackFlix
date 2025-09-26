@@ -41,7 +41,7 @@ const _CHEW_GRACE_MS = 2200;
 const _MAR_SMOOTH_ALPHA = 0.30;
 const _BITE_MIN_OPEN = 0.13;
 const _BITE_DROP_DELTA = -0.040;
-const double _CHEW_STD_MIN = 0.025;
+const double _CHEW_STD_MIN = 0.032;
 
 enum EatState { idle, approach, bite, chewing, grace }
 
@@ -671,7 +671,7 @@ class ChewingDetectionService extends ChangeNotifier {
       }
     }
 
-    if (_recentPeaks.length < 3) return false;
+    if (_recentPeaks.length < 4) return false;
 
     final gaps = <int>[];
     for (int i = 1; i < _recentPeaks.length; i++) {
