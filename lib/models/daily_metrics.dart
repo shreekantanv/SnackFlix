@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:snackflix/services/session_tracker.dart';
 
 part 'daily_metrics.g.dart';
 
@@ -8,16 +9,8 @@ class DailyMetrics extends HiveObject {
   final DateTime date;
 
   @HiveField(1)
-  int durationWatchedSec = 0;
+  List<SessionMetrics> sessions;
 
-  @HiveField(2)
-  int promptsShown = 0;
-
-  @HiveField(3)
-  int autoCleared = 0;
-
-  @HiveField(4)
-  int manualOverrides = 0;
-
-  DailyMetrics({required this.date});
+  DailyMetrics({required this.date, List<SessionMetrics>? sessions})
+      : sessions = sessions ?? [];
 }
