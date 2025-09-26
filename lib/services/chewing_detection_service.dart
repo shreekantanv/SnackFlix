@@ -172,6 +172,23 @@ class ChewingDetectionService extends ChangeNotifier {
 
   Future<bool> initialize() async {
     _isDisposed = false;
+    return await resume();
+  }
+
+  Future<void> pause() async {
+    if (_isDisposed || _cam == null) return;
+    _camGen++; // Invalidate any pending frames
+    try {
+      await _cam?.stopImageStream();
+    } catch (_) {}
+    await _cam?.dispose();
+    _cam = null;
+    _camReady = false;
+    notifyListeners();
+  }
+
+  Future<bool> resume() async {
+    if (_isDisposed) return false;
     return await _initCam();
   }
 

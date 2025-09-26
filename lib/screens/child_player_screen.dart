@@ -102,7 +102,7 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
         context.read<SessionTracker>().onVideoPlay();
       }
     } else {
-      _pauseDwell ??= Timer(const Duration(seconds: 2), () {
+      _pauseDwell ??= Timer(Duration(seconds: widget.biteInterval.toInt()), () {
         if (_controller.value.playerState == PlayerState.playing) {
           _controller.pauseVideo();
           context.read<SessionTracker>().onVideoPause();
@@ -119,9 +119,9 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
     if (state == AppLifecycleState.paused) {
       _controller.pauseVideo();
       context.read<SessionTracker>().onVideoPause();
-      _chewingService.dispose();
+      _chewingService.pause();
     } else if (state == AppLifecycleState.resumed) {
-      _chewingService.initialize().then((_) {
+      _chewingService.resume().then((_) {
         if (mounted) setState(() {});
       });
     }
@@ -199,7 +199,6 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _chewingService.removeListener(_onChewingStateChanged);
-    _chewingService.dispose();
     _pauseDwell?.cancel();
     _controller.close();
     super.dispose();
