@@ -139,14 +139,14 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Enter PIN"), // TODO: Localize
+        title: Text(t.enterPinTitle),
         content: TextField(
           controller: pinController,
           autofocus: true,
           keyboardType: TextInputType.number,
           obscureText: true,
           decoration: InputDecoration(
-            hintText: "4-digit PIN", // TODO: Localize
+            hintText: t.pinHint,
             counterText: '',
           ),
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -163,11 +163,10 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
                 Navigator.pop(context, true);
               } else {
                 Navigator.pop(context, false);
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text("Incorrect PIN"))); // TODO: Localize
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.incorrectPin)));
               }
             },
-            child: Text("Submit"), // TODO: Localize
+            child: Text(t.submit),
           ),
         ],
       ),
@@ -199,6 +198,7 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _chewingService.removeListener(_onChewingStateChanged);
+    _chewingService.dispose();
     _pauseDwell?.cancel();
     _controller.close();
     super.dispose();
@@ -239,7 +239,7 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
             if (_playerLocked)
               TextButton.icon(
                 icon: const Icon(Icons.lock_open_rounded),
-                label: Text("Parent Override"), // TODO: Localize
+                label: Text(t.parentOverride),
                 onPressed: _showPinDialog,
               )
             else

@@ -33,8 +33,6 @@ const _NEAR_IOU_THR = 0.05;
 const _NEAR_DIST_SCALE = 0.85;
 const _OBJ_MOTION_DELTA = 4.0;
 const _FOOD_PERSIST_MS = 2000;
-const _FOOD_MIN_HITS = 2;
-const _HAND_GATE_MS = 1200;
 const _HAND_MIN_PIX_RATIO = 0.05;
 const _WRIST_NEAR_SCALE = 0.95;
 const _APPROACH_TIMEOUT_MS = 1800;
@@ -43,7 +41,7 @@ const _CHEW_GRACE_MS = 2200;
 const _MAR_SMOOTH_ALPHA = 0.30;
 const _BITE_MIN_OPEN = 0.13;
 const _BITE_DROP_DELTA = -0.040;
-const double _CHEW_STD_MIN = 0.018;
+const double _CHEW_STD_MIN = 0.025;
 
 enum EatState { idle, approach, bite, chewing, grace }
 
@@ -908,7 +906,7 @@ class ChewingDetectionService extends ChangeNotifier {
 
     switch (_state) {
       case EatState.idle:
-        if (!noFace && approachScore > 0.50) {
+        if (!noFace && approachScore > 0.65) {
           nextState = EatState.approach;
           _tState = now;
         }

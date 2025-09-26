@@ -28,6 +28,7 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
     super.initState();
     _settings = context.read<SettingsService>();
     _pinController.text = _settings.pin ?? '';
+    _biteInterval = _settings.biteInterval;
   }
 
   @override
@@ -131,7 +132,7 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
       AppRouter.childPlayer,
       arguments: {
         'videoUrl': _urlController.text.trim(),
-        'biteInterval': _biteInterval,
+        'biteInterval': _settings.biteInterval,
         'smartVerification': _smartVerification,
       },
     );
@@ -237,7 +238,11 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
                           max: 180,
                           divisions: (180 - 45) ~/ 5,
                           label: '${_biteInterval.toInt()}s',
-                          onChanged: (v) => setState(() => _biteInterval = (v / 5).round() * 5.0),
+                          onChanged: (v) {
+                            final newValue = (v / 5).round() * 5.0;
+                            setState(() => _biteInterval = newValue);
+                            _settings.setBiteInterval(newValue);
+                          },
                         ),
                       ),
                     ],
@@ -264,8 +269,8 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
                   color: _cardColor,
                   onColor: _cardOnColor,
                   leading: Icons.password_rounded,
-                  title: "Parent PIN", // TODO: Localize
-                  subtitle: "Set a 4-digit PIN to override playback pauses.", // TODO: Localize
+                  title: t.pinHeader,
+                  subtitle: t.pinSubtitle,
                   child: Theme(
                     data: Theme.of(context).copyWith(
                       inputDecorationTheme: InputDecorationTheme(
@@ -284,7 +289,7 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
                       keyboardType: TextInputType.number,
                       obscureText: true,
                       decoration: InputDecoration(
-                        hintText: "4-digit PIN", // TODO: Localize
+                        hintText: t.pinHint,
                         prefixIcon: Icon(Icons.pin_rounded, color: _cardOnColor.withOpacity(0.9)),
                         counterText: '',
                       ),
