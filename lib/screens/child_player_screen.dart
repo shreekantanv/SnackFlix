@@ -19,7 +19,7 @@ class ChildPlayerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settings = context.watch<SettingsService>();
+    final settings = context.read<SettingsService>();
     return ChangeNotifierProvider(
       create: (_) => ChewingDetectionService(
         batterySaverEnabled: settings.batterySaverEnabled,
@@ -53,9 +53,6 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
     WidgetsBinding.instance.addObserver(this);
 
     _chewingService = context.read<ChewingDetectionService>();
-    _chewingService.initialize().then((_) {
-      if (mounted) setState(() {});
-    });
     _chewingService.addListener(_onChewingStateChanged);
 
     final videoId = YoutubePlayerController.convertUrlToId(widget.videoUrl ?? '');
@@ -77,6 +74,9 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _chewingService.initialize().then((_) {
+        if (mounted) setState(() {});
+      });
       context.read<SessionTracker>().onVideoPlay();
       _showPreFlightTips();
     });

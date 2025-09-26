@@ -56,7 +56,6 @@ class SessionTracker extends ChangeNotifier {
     _m = SessionMetrics();
     _watch.reset();
     _watch.start();
-    notifyListeners();
   }
 
   void end() {
