@@ -100,5 +100,27 @@
   "settingsThemeDark": "Using dark theme",
   "settingsBatterySaverToggle": "Battery Saver",
   "settingsBatterySaverEnabled": "Enabled: Lower camera quality to save battery",
-  "settingsBatterySaverDisabled": "Disabled: Highest camera quality"
+  "settingsBatterySaverDisabled": "Disabled: Highest camera quality",
+  "watchTimeHistoryTitle": "Watch Time History",
+  "durationWatchedTitle": "Duration Watched",
+  "minutes": "{minutes} min",
+  "@minutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "last7Days": "Last 7 Days",
+  "pastSessionsTitle": "Past Sessions",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "daysAgo": "{count} days ago",
+  "@daysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

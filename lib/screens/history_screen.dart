@@ -25,10 +25,10 @@ class HistoryScreen extends StatelessWidget {
       );
     }
 
-    return _buildHistoryView(context, t, allMetrics);
+    return _buildHistoryView(context, t, allMetrics, metricsSvc);
   }
 
-  Widget _buildHistoryView(BuildContext context, AppLocalizations t, List<DailyMetrics> allMetrics) {
+  Widget _buildHistoryView(BuildContext context, AppLocalizations t, List<DailyMetrics> allMetrics, MetricsService metricsSvc) {
     final sevenDaysMetrics = metricsSvc.getMetricsForLastDays(7);
     final totalDurationLast7Days = sevenDaysMetrics.fold<Duration>(
       Duration.zero,
