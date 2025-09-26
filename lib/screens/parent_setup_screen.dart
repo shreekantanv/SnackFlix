@@ -128,138 +128,138 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
 
-    return Scaffold(
-      // force a non-transparent app bar for contrast
-      appBar: AppBar(
-        elevation: 0,
-        title: Text(t.parentSetupTitle),
-        centerTitle: false,
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+    return SafeArea(
+      child: Column(
         children: [
-          _SectionCard(
-            color: _cardColor,
-            onColor: _cardOnColor,
-            leading: Icons.link_rounded,
-            title: t.videoSourceHeader,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               children: [
-                Theme(
-                  // make inputs readable regardless of theme
-                  data: Theme.of(context).copyWith(
-                    inputDecorationTheme: InputDecorationTheme(
-                      filled: true,
-                      fillColor: Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFF312A47)
-                          : Colors.white,
-                      border: _inputBorder(Colors.transparent),
-                      enabledBorder: _inputBorder(Colors.transparent),
-                      focusedBorder: _inputBorder(_chipBg),
-                      hintStyle: TextStyle(color: _cardOnColor.withOpacity(0.7)),
-                    ),
-                  ),
-                  child: TextField(
-                    controller: _urlController,
-                    keyboardType: TextInputType.url,
-                    decoration: InputDecoration(
-                      hintText: t.videoSourceHint,
-                      prefixIcon: Icon(Icons.public_rounded, color: _cardOnColor.withOpacity(0.9)),
-                    ),
+                _SectionCard(
+                  color: _cardColor,
+                  onColor: _cardOnColor,
+                  leading: Icons.link_rounded,
+                  title: t.videoSourceHeader,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Theme(
+                        // make inputs readable regardless of theme
+                        data: Theme.of(context).copyWith(
+                          inputDecorationTheme: InputDecorationTheme(
+                            filled: true,
+                            fillColor: Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF312A47)
+                                : Colors.white,
+                            border: _inputBorder(Colors.transparent),
+                            enabledBorder: _inputBorder(Colors.transparent),
+                            focusedBorder: _inputBorder(_chipBg),
+                            hintStyle: TextStyle(color: _cardOnColor.withOpacity(0.7)),
+                          ),
+                        ),
+                        child: TextField(
+                          controller: _urlController,
+                          keyboardType: TextInputType.url,
+                          decoration: InputDecoration(
+                            hintText: t.videoSourceHint,
+                            prefixIcon: Icon(Icons.public_rounded, color: _cardOnColor.withOpacity(0.9)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.smart_display_outlined),
+                            label: Text(t.openYouTubeKids),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _cardOnColor,
+                              side: BorderSide(color: _cardOnColor.withOpacity(0.35)),
+                            ),
+                            onPressed: _openYouTubeKids,
+                          ),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.content_paste_go_rounded),
+                            label: Text(t.pasteFromClipboard),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _cardOnColor,
+                              side: BorderSide(color: _cardOnColor.withOpacity(0.35)),
+                            ),
+                            onPressed: _pasteFromClipboard,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.smart_display_outlined),
-                      label: Text(t.openYouTubeKids),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _cardOnColor,
-                        side: BorderSide(color: _cardOnColor.withOpacity(0.35)),
+                const SizedBox(height: 12),
+                _SectionCard(
+                  color: _cardColor,
+                  onColor: _cardOnColor,
+                  leading: Icons.timer_rounded,
+                  title: t.biteIntervalHeader,
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: _chipBg, borderRadius: BorderRadius.circular(20)),
+                    child: Text('${_biteInterval.toInt()}s',
+                        style: TextStyle(color: _chipFg, fontWeight: FontWeight.w700)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(t.biteIntervalTip,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _cardOnColor)),
+                      SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 5,
+                          thumbColor: _chipBg,
+                          activeTrackColor: _chipBg.withOpacity(0.9),
+                          inactiveTrackColor: _cardOnColor.withOpacity(0.25),
+                        ),
+                        child: Slider(
+                          value: _biteInterval,
+                          min: 45,
+                          max: 180,
+                          divisions: (180 - 45) ~/ 5,
+                          label: '${_biteInterval.toInt()}s',
+                          onChanged: (v) => setState(() => _biteInterval = (v / 5).round() * 5.0),
+                        ),
                       ),
-                      onPressed: _openYouTubeKids,
-                    ),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.content_paste_go_rounded),
-                      label: Text(t.pasteFromClipboard),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _cardOnColor,
-                        side: BorderSide(color: _cardOnColor.withOpacity(0.35)),
-                      ),
-                      onPressed: _pasteFromClipboard,
-                    ),
-                  ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _SectionCard(
+                  color: _cardColor,
+                  onColor: _cardOnColor,
+                  leading: Icons.verified_user_rounded,
+                  title: t.smartVerificationHeader,
+                  subtitle: t.smartVerificationSubtitle,
+                  child: SwitchListTile.adaptive(
+                    value: _smartVerification,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(t.smartVerificationHeader, style: TextStyle(color: _cardOnColor)),
+                    subtitle: Text(t.smartVerificationSubtitle,
+                        style: TextStyle(color: _cardOnColor.withOpacity(0.85))),
+                    onChanged: (v) => setState(() => _smartVerification = v),
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          _SectionCard(
-            color: _cardColor,
-            onColor: _cardOnColor,
-            leading: Icons.timer_rounded,
-            title: t.biteIntervalHeader,
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(color: _chipBg, borderRadius: BorderRadius.circular(20)),
-              child: Text('${_biteInterval.toInt()}s',
-                  style: TextStyle(color: _chipFg, fontWeight: FontWeight.w700)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(t.biteIntervalTip,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _cardOnColor)),
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 5,
-                    thumbColor: _chipBg,
-                    activeTrackColor: _chipBg.withOpacity(0.9),
-                    inactiveTrackColor: _cardOnColor.withOpacity(0.25),
-                  ),
-                  child: Slider(
-                    value: _biteInterval,
-                    min: 45,
-                    max: 180,
-                    divisions: (180 - 45) ~/ 5,
-                    label: '${_biteInterval.toInt()}s',
-                    onChanged: (v) => setState(() => _biteInterval = (v / 5).round() * 5.0),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          _SectionCard(
-            color: _cardColor,
-            onColor: _cardOnColor,
-            leading: Icons.verified_user_rounded,
-            title: t.smartVerificationHeader,
-            subtitle: t.smartVerificationSubtitle,
-            child: SwitchListTile.adaptive(
-              value: _smartVerification,
-              contentPadding: EdgeInsets.zero,
-              title: Text(t.smartVerificationHeader, style: TextStyle(color: _cardOnColor)),
-              subtitle: Text(t.smartVerificationSubtitle,
-                  style: TextStyle(color: _cardOnColor.withOpacity(0.85))),
-              onChanged: (v) => setState(() => _smartVerification = v),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: PrimaryCtaButton(
+              label: AppLocalizations.of(context)!.startSessionCta,
+              onPressed: _startSession,
             ),
           ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: PrimaryCtaButton(
-          label: AppLocalizations.of(context)!.startSessionCta,
-          onPressed: _startSession,
-        ),
-      ),
     );
+  }
   }
 }
 

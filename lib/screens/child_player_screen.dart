@@ -110,7 +110,14 @@ class _ChildPlayerScreenState extends State<ChildPlayerScreen> with WidgetsBindi
 
     // go to summary
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, AppRouter.sessionSummary);
+    Navigator.pushReplacementNamed(
+      context,
+      AppRouter.sessionSummary,
+      arguments: {
+        'metrics': context.read<SessionTracker>().metrics,
+        'isPostSession': true,
+      },
+    );
   }
 
   @override

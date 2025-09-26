@@ -35,7 +35,7 @@ class _PermissionsGateScreenState extends State<PermissionsGateScreen> {
     _alreadyGranted = status.isGranted;
 
     if (widget.autoAdvanceIfGranted && _alreadyGranted) {
-      Navigator.pushReplacementNamed(context, AppRouter.parentSetup);
+      Navigator.pushReplacementNamed(context, AppRouter.main);
       return;
     }
     setState(() {});
@@ -54,7 +54,7 @@ class _PermissionsGateScreenState extends State<PermissionsGateScreen> {
 
     if (status.isGranted) {
       HapticFeedback.lightImpact();
-      Navigator.pushReplacementNamed(context, AppRouter.parentSetup);
+      Navigator.pushReplacementNamed(context, AppRouter.main);
     } else if (status.isPermanentlyDenied) {
       _showSettingsDialog(t);
     } else {
@@ -221,7 +221,7 @@ class _PermissionsGateScreenState extends State<PermissionsGateScreen> {
                           const SizedBox(height: 12),
                           PrimaryCtaButton(
                             onPressed: () => Navigator.pushReplacementNamed(
-                                context, AppRouter.parentSetup),
+                                context, AppRouter.main),
                             label: t.common_continue,
                           ),
                           const SizedBox(height: 8),
