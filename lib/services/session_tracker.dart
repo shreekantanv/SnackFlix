@@ -68,8 +68,8 @@ class SessionTracker extends ChangeNotifier {
   }
 
   // Event helpers
-  void onVideoPlay()  { if (!_watch.isRunning) _watch.start();  notifyListeners(); }
-  void onVideoPause() { if (_watch.isRunning) _watch.stop(); notifyListeners(); }
+  void onVideoPlay()  { if (!_watch.isRunning) _watch.start(); }
+  void onVideoPause() { if (_watch.isRunning) _watch.stop(); }
 
   void onPromptShown()      { metrics.promptsShown++; notifyListeners(); }
   void onPromptAutoClear()  { metrics.autoCleared++;  notifyListeners(); }
