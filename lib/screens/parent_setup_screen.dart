@@ -13,14 +13,27 @@ class ParentSetupScreen extends StatefulWidget {
   State<ParentSetupScreen> createState() => _ParentSetupScreenState();
 }
 
+import 'package:provider/provider.dart';
+import 'package:snackflix/services/settings_service.dart';
+
 class _ParentSetupScreenState extends State<ParentSetupScreen> {
   final _urlController = TextEditingController();
+  final _pinController = TextEditingController();
   double _biteInterval = 90;
   bool _smartVerification = true;
+  late final SettingsService _settings;
+
+  @override
+  void initState() {
+    super.initState();
+    _settings = context.read<SettingsService>();
+    _pinController.text = _settings.pin ?? '';
+  }
 
   @override
   void dispose() {
     _urlController.dispose();
+    _pinController.dispose();
     super.dispose();
   }
 
@@ -244,6 +257,41 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
                     subtitle: Text(t.smartVerificationSubtitle,
                         style: TextStyle(color: _cardOnColor.withOpacity(0.85))),
                     onChanged: (v) => setState(() => _smartVerification = v),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _SectionCard(
+                  color: _cardColor,
+                  onColor: _cardOnColor,
+                  leading: Icons.password_rounded,
+                  title: "Parent PIN", // TODO: Localize
+                  subtitle: "Set a 4-digit PIN to override playback pauses.", // TODO: Localize
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      inputDecorationTheme: InputDecorationTheme(
+                        filled: true,
+                        fillColor: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF312A47)
+                            : Colors.white,
+                        border: _inputBorder(Colors.transparent),
+                        enabledBorder: _inputBorder(Colors.transparent),
+                        focusedBorder: _inputBorder(_chipBg),
+                        hintStyle: TextStyle(color: _cardOnColor.withOpacity(0.7)),
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _pinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        hintText: "4-digit PIN", // TODO: Localize
+                        prefixIcon: Icon(Icons.pin_rounded, color: _cardOnColor.withOpacity(0.9)),
+                        counterText: '',
+                      ),
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      maxLength: 4,
+                      onChanged: (pin) => _settings.setPin(pin.length == 4 ? pin : null),
+                    ),
                   ),
                 ),
               ],

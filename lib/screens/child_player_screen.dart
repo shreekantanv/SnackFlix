@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:snackflix/l10n/app_localizations.dart';
 import 'package:snackflix/services/chewing_detection_service.dart';
@@ -46,6 +47,7 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
   late YoutubePlayerController _controller;
   late final ChewingDetectionService _chewingService;
   Timer? _pauseDwell;
+  bool _playerLocked = false;
 
   @override
   void initState() {
@@ -92,6 +94,9 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
     if (eating) {
       _pauseDwell?.cancel();
       _pauseDwell = null;
+      if (_playerLocked) {
+        setState(() => _playerLocked = false);
+      }
       if (_controller.value.playerState != PlayerState.playing) {
         _controller.playVideo();
         context.read<SessionTracker>().onVideoPlay();
@@ -101,6 +106,9 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
         if (_controller.value.playerState == PlayerState.playing) {
           _controller.pauseVideo();
           context.read<SessionTracker>().onVideoPause();
+          if (!_playerLocked) {
+            setState(() => _playerLocked = true);
+          }
         }
       });
     }
@@ -121,6 +129,53 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
 
   void _showPreFlightTips() {
     showDialog(context: context, barrierDismissible: false, builder: (_) => const PreFlightTips());
+  }
+
+  Future<void> _showPinDialog() async {
+    final pinController = TextEditingController();
+    final t = AppLocalizations.of(context)!;
+    final settings = context.read<SettingsService>();
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Enter PIN"), // TODO: Localize
+        content: TextField(
+          controller: pinController,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          obscureText: true,
+          decoration: InputDecoration(
+            hintText: "4-digit PIN", // TODO: Localize
+            counterText: '',
+          ),
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          maxLength: 4,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(t.cancel),
+          ),
+          TextButton(
+            onPressed: () {
+              if (pinController.text == settings.pin) {
+                Navigator.pop(context, true);
+              } else {
+                Navigator.pop(context, false);
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text("Incorrect PIN"))); // TODO: Localize
+              }
+            },
+            child: Text("Submit"), // TODO: Localize
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      setState(() => _playerLocked = false);
+    }
   }
 
   Future<void> _endSession() async {
@@ -182,15 +237,38 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
                 ),
               ),
             ),
-            TextButton(
-              onPressed: _endSession,
-              child: Text(t.endSessionCta), // "End session"
-            ),
+            if (_playerLocked)
+              TextButton.icon(
+                icon: const Icon(Icons.lock_open_rounded),
+                label: Text("Parent Override"), // TODO: Localize
+                onPressed: _showPinDialog,
+              )
+            else
+              TextButton(
+                onPressed: _endSession,
+                child: Text(t.endSessionCta), // "End session"
+              ),
           ],
         ),
         body: Stack(
           children: [
-            Center(child: YoutubePlayer(controller: _controller, aspectRatio: 16 / 9)),
+            Center(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  YoutubePlayer(controller: _controller, aspectRatio: 16 / 9),
+                  if (_playerLocked)
+                    Positioned.fill(
+                      child: AbsorbPointer(
+                        child: Container(
+                          color: Colors.black.withOpacity(0.6),
+                          child: const Icon(Icons.lock_outline_rounded, color: Colors.white, size: 80),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
             // Camera tile
             Positioned(
               top: 16,
