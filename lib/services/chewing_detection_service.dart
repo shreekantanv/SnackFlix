@@ -628,7 +628,9 @@ class ChewingDetectionService extends ChangeNotifier {
     if (_marWin.isEmpty) return false;
 
     final vals = <double>[];
-    for (final v in _marWin) if (!v.isNaN) vals.add(v);
+    for (final v in _marWin) {
+      if (!v.isNaN) vals.add(v);
+    }
     if (vals.length < 8) return false;
 
     final mean = vals.reduce((a, b) => a + b) / vals.length;
@@ -641,25 +643,41 @@ class ChewingDetectionService extends ChangeNotifier {
 
     final now = DateTime.now();
     final thr = mean + math.max(0.03, 0.5 * std);
-    final last = vals.last;
-    final prev = vals[vals.length - 2];
-    final minGap = const Duration(milliseconds: 300);
-    final maxGap = const Duration(milliseconds: 1600);
-    final lastPeakOk = _lastPeak == null || now.difference(_lastPeak!) >= minGap;
+    if (vals.length >= 2) {
+      final last = vals.last;
+      final prev = vals[vals.length - 2];
+      final minGap = const Duration(milliseconds: 300);
+      final lastPeakOk = _lastPeak == null || now.difference(_lastPeak!) >= minGap;
 
-    if (prev <= thr && last > thr && lastPeakOk) {
-      _lastPeak = now;
-      _recentPeaks.add(now);
-      _recentPeaks.removeWhere((t) => now.difference(t).inMilliseconds > 4000);
+      if (prev <= thr && last > thr && lastPeakOk) {
+        _lastPeak = now;
+        _recentPeaks.add(now);
+        _recentPeaks.removeWhere((t) => now.difference(t).inMilliseconds > 8000);
+      }
     }
 
-    int validPeaks = 0;
+    if (_recentPeaks.length < 3) return false;
+
+    final gaps = <int>[];
     for (int i = 1; i < _recentPeaks.length; i++) {
-      final gap = _recentPeaks[i].difference(_recentPeaks[i - 1]);
-      if (gap >= minGap && gap <= maxGap) validPeaks++;
+      gaps.add(_recentPeaks[i].difference(_recentPeaks[i - 1]).inMilliseconds);
     }
+    if (gaps.isEmpty) return false;
 
-    final chewing = (validPeaks >= 2) && (std > _CHEW_STD_MIN);
+    final avgGap = gaps.reduce((a, b) => a + b) / gaps.length;
+    if (avgGap < 450 || avgGap > 1800) return false;
+
+    double gapVariance = 0.0;
+    for (final g in gaps) {
+      final d = g - avgGap;
+      gapVariance += d * d;
+    }
+    final gapStd = math.sqrt(gapVariance / gaps.length);
+    final gapNormStd = gapStd / avgGap;
+
+    final consistent = gapNormStd < 0.22;
+    final chewing = consistent && (std > _CHEW_STD_MIN);
+
     if (chewing) _chewFrames++;
     return chewing;
   }
@@ -891,7 +909,7 @@ class ChewingDetectionService extends ChangeNotifier {
           break;
         }
         if (approachScore > 0.50) {
-          if (mouthOpen && (marSmooth ?? 0.0) > _BITE_MIN_OPEN && _tLastBite == null) {
+          if (mouthOpen && (marSmooth ?? 0.0) > _BITE_MIN_OPEN && teethGate && _tLastBite == null) {
             _tLastBite = now; // arm
           }
           final armed = _tLastBite != null && now.difference(_tLastBite!).inMilliseconds <= _BITE_MAX_WINDOW_MS;
