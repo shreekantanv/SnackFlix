@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import 'package:snackflix/config/youtube_channels.dart';
 import 'package:snackflix/models/video_item.dart';
 
 // IMPORTANT: Replace with your actual YouTube Data API key
 const _apiKey = 'YOUR_YOUTUBE_API_KEY';
+
+const _featuredVideosCacheKey = 'featured_videos';
 
 class YouTubeService {
   final http.Client _client;
@@ -54,5 +57,49 @@ class YouTubeService {
     } else {
       throw Exception('Failed to search videos');
     }
+  }
+
+  Future<List<VideoItem>> getFeaturedVideos() async {
+    if (_apiKey.isEmpty || _apiKey == 'YOUR_YOUTUBE_API_KEY') {
+      throw Exception('YouTube API key is missing or is a placeholder.');
+    }
+
+    if (_cache.containsKey(_featuredVideosCacheKey)) {
+      return _cache[_featuredVideosCacheKey]!;
+    }
+
+    final List<VideoItem> featuredVideos = [];
+    for (final channelId in featuredChannelIds) {
+      final url = Uri.https('www.googleapis.com', '/youtube/v3/search', {
+        'part': 'snippet',
+        'channelId': channelId,
+        'type': 'video',
+        'order': 'date',
+        'maxResults': '5',
+        'key': _apiKey,
+      });
+
+      final response = await _client.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final items = data['items'] as List;
+        final results = items.map((item) {
+          final snippet = item['snippet'];
+          return VideoItem(
+            id: item['id']['videoId'],
+            title: snippet['title'],
+            thumbnailUrl: snippet['thumbnails']['high']['url'],
+          );
+        }).toList();
+        featuredVideos.addAll(results);
+      } else {
+        throw Exception('Failed to fetch featured videos for channel $channelId');
+      }
+    }
+
+    featuredVideos.shuffle();
+    _cache[_featuredVideosCacheKey] = featuredVideos;
+    return featuredVideos;
   }
 }

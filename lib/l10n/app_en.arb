@@ -149,5 +149,6 @@
         "type": "String"
       }
     }
-  }
+  },
+  "featuredVideosError": "Could not load featured videos."
 }

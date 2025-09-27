@@ -27,8 +27,10 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
   bool _smartVerification = true;
   late final SettingsService _settings;
   late final YouTubeService _youtubeService;
-  List<VideoItem> _searchResults = [];
-  bool _isLoading = false;
+  List<VideoItem> _featuredVideos = [];
+  List<VideoItem> _currentVideos = [];
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -37,6 +39,12 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
     _youtubeService = YouTubeService();
     _pinController.text = _settings.pin ?? '';
     _biteInterval = _settings.biteInterval;
+    _loadFeaturedVideos();
+    _searchController.addListener(() {
+      if (_searchController.text.isEmpty) {
+        setState(() => _currentVideos = _featuredVideos);
+      }
+    });
   }
 
   @override
@@ -47,20 +55,47 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
     super.dispose();
   }
 
-  Future<void> _searchVideos() async {
-    if (_searchController.text.trim().isEmpty) return;
-    setState(() => _isLoading = true);
+  Future<void> _loadFeaturedVideos() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     try {
-      final results = await _youtubeService.searchVideos(_searchController.text.trim());
+      final videos = await _youtubeService.getFeaturedVideos();
       if (mounted) {
-        setState(() => _searchResults = results);
+        setState(() {
+          _featuredVideos = videos;
+          _currentVideos = videos;
+        });
       }
     } catch (e) {
       if (!mounted) return;
       final t = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(t.videoDiscoverySearchError(e.toString()))),
-      );
+      setState(() => _error = t.featuredVideosError);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _searchVideos() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final results = await _youtubeService.searchVideos(query);
+      if (mounted) {
+        setState(() => _currentVideos = results);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final t = AppLocalizations.of(context)!;
+      setState(() => _error = t.videoDiscoverySearchError(e.toString()));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -173,7 +208,7 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
     );
   }
 
-  Widget _buildSearchResultsGrid() {
+  Widget _buildVideosGrid() {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -183,9 +218,9 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
         mainAxisSpacing: 10,
         childAspectRatio: 16 / 9,
       ),
-      itemCount: _searchResults.length,
+      itemCount: _currentVideos.length,
       itemBuilder: (context, index) {
-        final video = _searchResults[index];
+        final video = _currentVideos[index];
         return GestureDetector(
           onTap: () => _selectVideo(video),
           child: ClipRRect(
@@ -283,8 +318,13 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
                       const SizedBox(height: 12),
                       if (_isLoading)
                         const CircularProgressIndicator()
-                      else if (_searchResults.isNotEmpty)
-                        _buildSearchResultsGrid()
+                      else if (_error != null)
+                        Text(
+                          _error!,
+                          style: TextStyle(color: Theme.of(context).colorScheme.error),
+                        )
+                      else if (_currentVideos.isNotEmpty)
+                        _buildVideosGrid()
                       else
                         Text(t.videoDiscoveryNoResults),
                     ],
