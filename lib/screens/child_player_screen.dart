@@ -92,26 +92,47 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
 
   void _applyDecision(bool eating) {
     if (eating) {
+      // Eating: cancel any pending lock timer, unlock if needed, and (re)play.
       _pauseDwell?.cancel();
       _pauseDwell = null;
+
       if (_playerLocked) {
         setState(() => _playerLocked = false);
       }
-      if (_controller.value.playerState != PlayerState.playing) {
+
+      // Only play if not locked (defensive) and not already playing.
+      if (!_playerLocked && _controller.value.playerState != PlayerState.playing) {
         _controller.playVideo();
         context.read<SessionTracker>().onVideoPlay();
       }
-    } else {
-      _pauseDwell ??= Timer(Duration(seconds: widget.biteInterval.toInt()), () {
-        if (_controller.value.playerState == PlayerState.playing) {
-          _controller.pauseVideo();
-          context.read<SessionTracker>().onVideoPause();
-          if (!_playerLocked) {
-            setState(() => _playerLocked = true);
-          }
-        }
-      });
+      return;
     }
+
+    // Not eating: arm a dwell timer if one isn't already running.
+    _armDwellTimer();
+  }
+
+  void _armDwellTimer() {
+    if (_pauseDwell != null) return; // already armed
+
+    final wait = Duration(seconds: widget.biteInterval.ceil());
+    _pauseDwell = Timer(wait, () {
+      // Allow future timers to arm again.
+      _pauseDwell = null;
+
+      // If eating resumed during the wait, do nothing.
+      final stillNotEating = !(_chewingService.state == EatState.chewing ||
+          _chewingService.state == EatState.grace);
+      if (!mounted || !stillNotEating) return;
+
+      // Pause & lock regardless of reported player state (it can be stale).
+      _controller.pauseVideo();
+      context.read<SessionTracker>().onVideoPause();
+
+      if (!_playerLocked) {
+        setState(() => _playerLocked = true);
+      }
+    });
   }
 
   @override
@@ -173,7 +194,11 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
     );
 
     if (ok == true) {
+      // NEW: record manual override
+      context.read<SessionTracker>().onManualOverride();
       setState(() => _playerLocked = false);
+      _controller.playVideo();
+      context.read<SessionTracker>().onVideoPlay();
     }
   }
 

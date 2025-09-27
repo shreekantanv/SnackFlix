@@ -23,7 +23,7 @@
   "perm_deniedSnack": "Camera access is required to continue.",
   "perm_settingsTitle": "Open Settings",
   "perm_settingsBody": "Camera permission is permanently denied. Please enable it in Settings to continue.",
-  "perm_settingsCancel": "Cancel",
+  "cancel": "Cancel",
   "perm_settingsOpen": "Open Settings",
   "common_continue": "Continue",
   "parentSetupTitle": "Parent Setup",
