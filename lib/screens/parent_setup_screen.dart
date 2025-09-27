@@ -5,7 +5,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:snackflix/utils/router.dart';
 import 'package:snackflix/l10n/app_localizations.dart';
+import '../models/video_item.dart';
 import '../services/settings_service.dart';
+import '../services/youtube_service.dart';
 import '../widgets/primary_cta_button.dart';
 
 class ParentSetupScreen extends StatefulWidget {
@@ -18,14 +20,19 @@ class ParentSetupScreen extends StatefulWidget {
 class _ParentSetupScreenState extends State<ParentSetupScreen> {
   final _urlController = TextEditingController();
   final _pinController = TextEditingController();
+  final _searchController = TextEditingController();
   double _biteInterval = 90;
   bool _smartVerification = true;
   late final SettingsService _settings;
+  late final YouTubeService _youtubeService;
+  List<VideoItem> _searchResults = [];
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _settings = context.read<SettingsService>();
+    _youtubeService = YouTubeService();
     _pinController.text = _settings.pin ?? '';
     _biteInterval = _settings.biteInterval;
   }
@@ -34,7 +41,29 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
   void dispose() {
     _urlController.dispose();
     _pinController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _searchVideos() async {
+    if (_searchController.text.isEmpty) return;
+    setState(() => _isLoading = true);
+    try {
+      final results = await _youtubeService.searchVideos(_searchController.text);
+      if (mounted) {
+        setState(() => _searchResults = results);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final t = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t.videoDiscoverySearchError(e.toString()))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   // ----- Helpers (solid, theme-agnostic colors to guarantee contrast) -----
@@ -134,6 +163,51 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
     );
   }
 
+  void _selectVideo(VideoItem video) {
+    _urlController.text = video.youtubeUrl;
+    final t = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(t.videoDiscoverySelectedSnack(video.title))),
+    );
+  }
+
+  Widget _buildSearchResultsGrid() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 16 / 9,
+      ),
+      itemCount: _searchResults.length,
+      itemBuilder: (context, index) {
+        final video = _searchResults[index];
+        return GestureDetector(
+          onTap: () => _selectVideo(video),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: GridTile(
+              footer: GridTileBar(
+                backgroundColor: Colors.black.withOpacity(0.6),
+                title: Text(
+                  video.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              child: Image.network(
+                video.thumbnailUrl,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _startSession() {
     final t = AppLocalizations.of(context)!;
     FocusScope.of(context).unfocus();
@@ -165,6 +239,56 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               children: [
+                _SectionCard(
+                  color: _cardColor,
+                  onColor: _cardOnColor,
+                  leading: Icons.video_library_rounded,
+                  title: t.videoDiscoveryTitle,
+                  child: Column(
+                    children: [
+                      Theme(
+                        data: Theme.of(context).copyWith(
+                          inputDecorationTheme: InputDecorationTheme(
+                            filled: true,
+                            fillColor:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFF312A47)
+                                    : Colors.white,
+                            border: _inputBorder(Colors.transparent),
+                            enabledBorder: _inputBorder(Colors.transparent),
+                            focusedBorder: _inputBorder(_chipBg),
+                            hintStyle: TextStyle(
+                              color: _cardOnColor.withOpacity(0.7),
+                            ),
+                          ),
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: t.videoDiscoverySearchHint,
+                            prefixIcon: Icon(
+                              Icons.search_rounded,
+                              color: _cardOnColor.withOpacity(0.9),
+                            ),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.send_rounded),
+                              onPressed: _searchVideos,
+                            ),
+                          ),
+                          onSubmitted: (_) => _searchVideos(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (_isLoading)
+                        const CircularProgressIndicator()
+                      else if (_searchResults.isNotEmpty)
+                        _buildSearchResultsGrid()
+                      else
+                        Text(t.videoDiscoveryNoResults),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
                 _SectionCard(
                   color: _cardColor,
                   onColor: _cardOnColor,

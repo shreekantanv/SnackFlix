@@ -130,5 +130,24 @@
       }
     }
   },
-  "videoWatchedTitle": "Video Watched"
+  "videoWatchedTitle": "Video Watched",
+  "videoDiscoveryTitle": "Video Discovery",
+  "videoDiscoverySearchHint": "Search YouTube...",
+  "videoDiscoverySearchError": "Error searching videos: {error}",
+  "@videoDiscoverySearchError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "videoDiscoveryNoResults": "Search for videos to get started.",
+  "videoDiscoverySelectedSnack": "Selected: {title}",
+  "@videoDiscoverySelectedSnack": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  }
 }
