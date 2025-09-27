@@ -81,7 +81,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get perm_settingsBody => 'Camera permission is permanently denied. Please enable it in Settings to continue.';
 
   @override
-  String get perm_settingsCancel => 'Cancel';
+  String get cancel => 'Cancel';
 
   @override
   String get perm_settingsOpen => 'Open Settings';
@@ -150,6 +150,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get smartVerificationSubtitle => 'Chewing + snack nearby';
 
   @override
+  String get pinHeader => 'Parent PIN';
+
+  @override
+  String get pinSubtitle => 'Set a 4-digit PIN to override playback pauses.';
+
+  @override
+  String get pinHint => '4-digit PIN';
+
+  @override
   String get startSessionCta => 'Start Session';
 
   @override
@@ -199,6 +208,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get endSessionCta => 'End session';
+
+  @override
+  String get parentOverride => 'Parent Override';
+
+  @override
+  String get enterPinTitle => 'Enter PIN';
+
+  @override
+  String get incorrectPin => 'Incorrect PIN';
+
+  @override
+  String get submit => 'Submit';
 
   @override
   String get sessionSummaryTitle => 'Session Summary';

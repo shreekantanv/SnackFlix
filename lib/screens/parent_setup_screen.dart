@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:snackflix/utils/router.dart';
 import 'package:snackflix/l10n/app_localizations.dart';
+import '../services/settings_service.dart';
 import '../widgets/primary_cta_button.dart';
 
 class ParentSetupScreen extends StatefulWidget {
@@ -15,35 +17,45 @@ class ParentSetupScreen extends StatefulWidget {
 
 class _ParentSetupScreenState extends State<ParentSetupScreen> {
   final _urlController = TextEditingController();
+  final _pinController = TextEditingController();
   double _biteInterval = 90;
   bool _smartVerification = true;
+  late final SettingsService _settings;
+
+  @override
+  void initState() {
+    super.initState();
+    _settings = context.read<SettingsService>();
+    _pinController.text = _settings.pin ?? '';
+    _biteInterval = _settings.biteInterval;
+  }
 
   @override
   void dispose() {
     _urlController.dispose();
+    _pinController.dispose();
     super.dispose();
   }
 
   // ----- Helpers (solid, theme-agnostic colors to guarantee contrast) -----
-  Color get _cardColor =>
-      Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF262338) // deep eggplant (dark)
-          : const Color(0xFFF4F2FB); // soft off-white (light)
+  Color get _cardColor => Theme.of(context).brightness == Brightness.dark
+      ? const Color(0xFF262338) // deep eggplant (dark)
+      : const Color(0xFFF4F2FB); // soft off-white (light)
 
-  Color get _cardOnColor =>
-      Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFFE9E6FF)
-          : const Color(0xFF1E1236);
+  Color get _cardOnColor => Theme.of(context).brightness == Brightness.dark
+      ? const Color(0xFFE9E6FF)
+      : const Color(0xFF1E1236);
 
-  Color get _chipBg =>
-      Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF5E46F2)
-          : const Color(0xFF5E46F2);
+  Color get _chipBg => Theme.of(context).brightness == Brightness.dark
+      ? const Color(0xFF5E46F2)
+      : const Color(0xFF5E46F2);
 
   Color get _chipFg => Colors.white;
 
-  OutlineInputBorder _inputBorder(Color c) =>
-      OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: c));
+  OutlineInputBorder _inputBorder(Color c) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(14),
+    borderSide: BorderSide(color: c),
+  );
 
   // ------------------------------------------------------------------------
 
@@ -52,9 +64,13 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (data?.text?.trim().isNotEmpty == true) {
       _urlController.text = data!.text!.trim();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.pastedFromClipboardSnack)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(t.pastedFromClipboardSnack)));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.clipboardEmptySnack)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(t.clipboardEmptySnack)));
     }
   }
 
@@ -64,7 +80,9 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.cantOpenYtKidsSnack)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(t.cantOpenYtKidsSnack)));
     }
   }
 
@@ -72,7 +90,9 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
     final s = v.trim();
     if (!s.startsWith('http')) return false;
     final uri = Uri.tryParse(s);
-    return uri != null && (uri.isScheme('http') || uri.isScheme('https')) && uri.host.isNotEmpty;
+    return uri != null &&
+        (uri.isScheme('http') || uri.isScheme('https')) &&
+        uri.host.isNotEmpty;
   }
 
   void _showHelpSheet() {
@@ -88,18 +108,26 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(children: [
-              const Icon(Icons.help_outline_rounded),
-              const SizedBox(width: 8),
-              Text(t.parentSetupHelpTitle, style: Theme.of(context).textTheme.titleLarge),
-            ]),
+            Row(
+              children: [
+                const Icon(Icons.help_outline_rounded),
+                const SizedBox(width: 8),
+                Text(
+                  t.parentSetupHelpTitle,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             _HelpStep(1, t.parentSetupHelpStep1),
             _HelpStep(2, t.parentSetupHelpStep2),
             _HelpStep(3, t.parentSetupHelpStep3),
             _HelpStep(4, t.parentSetupHelpStep4),
             const SizedBox(height: 12),
-            PrimaryCtaButton(label: t.gotIt, onPressed: () => Navigator.pop(context)),
+            PrimaryCtaButton(
+              label: t.gotIt,
+              onPressed: () => Navigator.pop(context),
+            ),
           ],
         ),
       ),
@@ -110,7 +138,9 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
     final t = AppLocalizations.of(context)!;
     FocusScope.of(context).unfocus();
     if (_urlController.text.isEmpty || !_isValidHttpUrl(_urlController.text)) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.invalidUrlSnack)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(t.invalidUrlSnack)));
       return;
     }
     Navigator.pushNamed(
@@ -118,7 +148,7 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
       AppRouter.childPlayer,
       arguments: {
         'videoUrl': _urlController.text.trim(),
-        'biteInterval': _biteInterval,
+        'biteInterval': _settings.biteInterval,
         'smartVerification': _smartVerification,
       },
     );
@@ -148,13 +178,16 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
                         data: Theme.of(context).copyWith(
                           inputDecorationTheme: InputDecorationTheme(
                             filled: true,
-                            fillColor: Theme.of(context).brightness == Brightness.dark
+                            fillColor:
+                                Theme.of(context).brightness == Brightness.dark
                                 ? const Color(0xFF312A47)
                                 : Colors.white,
                             border: _inputBorder(Colors.transparent),
                             enabledBorder: _inputBorder(Colors.transparent),
                             focusedBorder: _inputBorder(_chipBg),
-                            hintStyle: TextStyle(color: _cardOnColor.withOpacity(0.7)),
+                            hintStyle: TextStyle(
+                              color: _cardOnColor.withOpacity(0.7),
+                            ),
                           ),
                         ),
                         child: TextField(
@@ -162,7 +195,10 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
                           keyboardType: TextInputType.url,
                           decoration: InputDecoration(
                             hintText: t.videoSourceHint,
-                            prefixIcon: Icon(Icons.public_rounded, color: _cardOnColor.withOpacity(0.9)),
+                            prefixIcon: Icon(
+                              Icons.public_rounded,
+                              color: _cardOnColor.withOpacity(0.9),
+                            ),
                           ),
                         ),
                       ),
@@ -176,7 +212,9 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
                             label: Text(t.openYouTubeKids),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: _cardOnColor,
-                              side: BorderSide(color: _cardOnColor.withOpacity(0.35)),
+                              side: BorderSide(
+                                color: _cardOnColor.withOpacity(0.35),
+                              ),
                             ),
                             onPressed: _openYouTubeKids,
                           ),
@@ -185,7 +223,9 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
                             label: Text(t.pasteFromClipboard),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: _cardOnColor,
-                              side: BorderSide(color: _cardOnColor.withOpacity(0.35)),
+                              side: BorderSide(
+                                color: _cardOnColor.withOpacity(0.35),
+                              ),
                             ),
                             onPressed: _pasteFromClipboard,
                           ),
@@ -201,16 +241,31 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
                   leading: Icons.timer_rounded,
                   title: t.biteIntervalHeader,
                   trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: _chipBg, borderRadius: BorderRadius.circular(20)),
-                    child: Text('${_biteInterval.toInt()}s',
-                        style: TextStyle(color: _chipFg, fontWeight: FontWeight.w700)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _chipBg,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${_biteInterval.toInt()}s',
+                      style: TextStyle(
+                        color: _chipFg,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(t.biteIntervalTip,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: _cardOnColor)),
+                      Text(
+                        t.biteIntervalTip,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(color: _cardOnColor),
+                      ),
                       SliderTheme(
                         data: SliderTheme.of(context).copyWith(
                           trackHeight: 5,
@@ -224,7 +279,11 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
                           max: 180,
                           divisions: (180 - 45) ~/ 5,
                           label: '${_biteInterval.toInt()}s',
-                          onChanged: (v) => setState(() => _biteInterval = (v / 5).round() * 5.0),
+                          onChanged: (v) {
+                            final newValue = (v / 5).round() * 5.0;
+                            setState(() => _biteInterval = newValue);
+                            _settings.setBiteInterval(newValue);
+                          },
                         ),
                       ),
                     ],
@@ -240,10 +299,57 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
                   child: SwitchListTile.adaptive(
                     value: _smartVerification,
                     contentPadding: EdgeInsets.zero,
-                    title: Text(t.smartVerificationHeader, style: TextStyle(color: _cardOnColor)),
-                    subtitle: Text(t.smartVerificationSubtitle,
-                        style: TextStyle(color: _cardOnColor.withOpacity(0.85))),
+                    title: Text(
+                      t.smartVerificationHeader,
+                      style: TextStyle(color: _cardOnColor),
+                    ),
+                    subtitle: Text(
+                      t.smartVerificationSubtitle,
+                      style: TextStyle(color: _cardOnColor.withOpacity(0.85)),
+                    ),
                     onChanged: (v) => setState(() => _smartVerification = v),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _SectionCard(
+                  color: _cardColor,
+                  onColor: _cardOnColor,
+                  leading: Icons.password_rounded,
+                  title: t.pinHeader,
+                  subtitle: t.pinSubtitle,
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      inputDecorationTheme: InputDecorationTheme(
+                        filled: true,
+                        fillColor:
+                            Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF312A47)
+                            : Colors.white,
+                        border: _inputBorder(Colors.transparent),
+                        enabledBorder: _inputBorder(Colors.transparent),
+                        focusedBorder: _inputBorder(_chipBg),
+                        hintStyle: TextStyle(
+                          color: _cardOnColor.withOpacity(0.7),
+                        ),
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _pinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        hintText: t.pinHint,
+                        prefixIcon: Icon(
+                          Icons.pin_rounded,
+                          color: _cardOnColor.withOpacity(0.9),
+                        ),
+                        counterText: '',
+                      ),
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      maxLength: 4,
+                      onChanged: (pin) =>
+                          _settings.setPin(pin.length == 4 ? pin : null),
+                    ),
                   ),
                 ),
               ],
@@ -260,7 +366,7 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
       ),
     );
   }
-  }
+}
 
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
@@ -293,29 +399,34 @@ class _SectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              Icon(leading, color: onColor),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(color: onColor, fontWeight: FontWeight.w700)),
-                    if (subtitle != null)
-                      Text(subtitle!,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: onColor.withOpacity(0.9))),
-                  ],
+            Row(
+              children: [
+                Icon(leading, color: onColor),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: onColor,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                      if (subtitle != null)
+                        Text(
+                          subtitle!,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: onColor.withOpacity(0.9)),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              if (trailing != null) trailing!,
-            ]),
+                if (trailing != null) trailing!,
+              ],
+            ),
             const SizedBox(height: 12),
             child,
           ],
@@ -334,11 +445,14 @@ class _HelpStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        CircleAvatar(radius: 14, child: Text('$n')),
-        const SizedBox(width: 10),
-        Expanded(child: Text(text)),
-      ]),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(radius: 14, child: Text('$n')),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text)),
+        ],
+      ),
     );
   }
 }

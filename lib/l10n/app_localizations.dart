@@ -237,11 +237,11 @@ abstract class AppLocalizations {
   /// **'Camera permission is permanently denied. Please enable it in Settings to continue.'**
   String get perm_settingsBody;
 
-  /// No description provided for @perm_settingsCancel.
+  /// No description provided for @cancel.
   ///
   /// In en, this message translates to:
   /// **'Cancel'**
-  String get perm_settingsCancel;
+  String get cancel;
 
   /// No description provided for @perm_settingsOpen.
   ///
@@ -375,6 +375,24 @@ abstract class AppLocalizations {
   /// **'Chewing + snack nearby'**
   String get smartVerificationSubtitle;
 
+  /// No description provided for @pinHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent PIN'**
+  String get pinHeader;
+
+  /// No description provided for @pinSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set a 4-digit PIN to override playback pauses.'**
+  String get pinSubtitle;
+
+  /// No description provided for @pinHint.
+  ///
+  /// In en, this message translates to:
+  /// **'4-digit PIN'**
+  String get pinHint;
+
   /// No description provided for @startSessionCta.
   ///
   /// In en, this message translates to:
@@ -476,6 +494,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'End session'**
   String get endSessionCta;
+
+  /// No description provided for @parentOverride.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent Override'**
+  String get parentOverride;
+
+  /// No description provided for @enterPinTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter PIN'**
+  String get enterPinTitle;
+
+  /// No description provided for @incorrectPin.
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect PIN'**
+  String get incorrectPin;
+
+  /// No description provided for @submit.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit'**
+  String get submit;
 
   /// No description provided for @sessionSummaryTitle.
   ///

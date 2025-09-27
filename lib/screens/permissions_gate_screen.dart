@@ -78,7 +78,7 @@ class _PermissionsGateScreenState extends State<PermissionsGateScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(t.perm_settingsCancel),
+            child: Text(t.cancel),
           ),
           TextButton(
             onPressed: () {

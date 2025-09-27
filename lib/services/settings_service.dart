@@ -5,6 +5,8 @@ class SettingsService extends ChangeNotifier {
   static const String _boxName = 'settings';
   static const String _themeKey = 'themeMode';
   static const String _batterySaverKey = 'batterySaver';
+  static const String _pinKey = 'pin';
+  static const String _biteIntervalKey = 'biteInterval';
 
   late Box _box;
 
@@ -13,6 +15,12 @@ class SettingsService extends ChangeNotifier {
 
   bool _batterySaverEnabled = true;
   bool get batterySaverEnabled => _batterySaverEnabled;
+
+  String? _pin;
+  String? get pin => _pin;
+
+  double _biteInterval = 90;
+  double get biteInterval => _biteInterval;
 
   Future<void> init() async {
     _box = await Hive.openBox(_boxName);
@@ -27,6 +35,12 @@ class SettingsService extends ChangeNotifier {
     // Load battery saver
     _batterySaverEnabled = _box.get(_batterySaverKey, defaultValue: true);
 
+    // Load pin
+    _pin = _box.get(_pinKey);
+
+    // Load bite interval
+    _biteInterval = _box.get(_biteIntervalKey, defaultValue: 90.0);
+
     notifyListeners();
   }
 
@@ -40,6 +54,22 @@ class SettingsService extends ChangeNotifier {
   Future<void> setBatterySaver(bool enabled) async {
     _batterySaverEnabled = enabled;
     await _box.put(_batterySaverKey, enabled);
+    notifyListeners();
+  }
+
+  Future<void> setPin(String? pin) async {
+    _pin = pin;
+    if (pin == null) {
+      await _box.delete(_pinKey);
+    } else {
+      await _box.put(_pinKey, pin);
+    }
+    notifyListeners();
+  }
+
+  Future<void> setBiteInterval(double interval) async {
+    _biteInterval = interval;
+    await _box.put(_biteIntervalKey, interval);
     notifyListeners();
   }
 }

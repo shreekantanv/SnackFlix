@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:snackflix/l10n/app_localizations.dart';
 import 'package:snackflix/services/chewing_detection_service.dart';
@@ -46,6 +47,7 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
   late YoutubePlayerController _controller;
   late final ChewingDetectionService _chewingService;
   Timer? _pauseDwell;
+  bool _playerLocked = false;
 
   @override
   void initState() {
@@ -90,20 +92,47 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
 
   void _applyDecision(bool eating) {
     if (eating) {
+      // Eating: cancel any pending lock timer, unlock if needed, and (re)play.
       _pauseDwell?.cancel();
       _pauseDwell = null;
-      if (_controller.value.playerState != PlayerState.playing) {
+
+      if (_playerLocked) {
+        setState(() => _playerLocked = false);
+      }
+
+      // Only play if not locked (defensive) and not already playing.
+      if (!_playerLocked && _controller.value.playerState != PlayerState.playing) {
         _controller.playVideo();
         context.read<SessionTracker>().onVideoPlay();
       }
-    } else {
-      _pauseDwell ??= Timer(const Duration(seconds: 2), () {
-        if (_controller.value.playerState == PlayerState.playing) {
-          _controller.pauseVideo();
-          context.read<SessionTracker>().onVideoPause();
-        }
-      });
+      return;
     }
+
+    // Not eating: arm a dwell timer if one isn't already running.
+    _armDwellTimer();
+  }
+
+  void _armDwellTimer() {
+    if (_pauseDwell != null) return; // already armed
+
+    final wait = Duration(seconds: widget.biteInterval.ceil());
+    _pauseDwell = Timer(wait, () {
+      // Allow future timers to arm again.
+      _pauseDwell = null;
+
+      // If eating resumed during the wait, do nothing.
+      final stillNotEating = !(_chewingService.state == EatState.chewing ||
+          _chewingService.state == EatState.grace);
+      if (!mounted || !stillNotEating) return;
+
+      // Pause & lock regardless of reported player state (it can be stale).
+      _controller.pauseVideo();
+      context.read<SessionTracker>().onVideoPause();
+
+      if (!_playerLocked) {
+        setState(() => _playerLocked = true);
+      }
+    });
   }
 
   @override
@@ -111,9 +140,9 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
     if (state == AppLifecycleState.paused) {
       _controller.pauseVideo();
       context.read<SessionTracker>().onVideoPause();
-      _chewingService.dispose();
+      _chewingService.pause();
     } else if (state == AppLifecycleState.resumed) {
-      _chewingService.initialize().then((_) {
+      _chewingService.resume().then((_) {
         if (mounted) setState(() {});
       });
     }
@@ -121,6 +150,56 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
 
   void _showPreFlightTips() {
     showDialog(context: context, barrierDismissible: false, builder: (_) => const PreFlightTips());
+  }
+
+  Future<void> _showPinDialog() async {
+    final pinController = TextEditingController();
+    final t = AppLocalizations.of(context)!;
+    final settings = context.read<SettingsService>();
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.enterPinTitle),
+        content: TextField(
+          controller: pinController,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          obscureText: true,
+          decoration: InputDecoration(
+            hintText: t.pinHint,
+            counterText: '',
+          ),
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          maxLength: 4,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(t.cancel),
+          ),
+          TextButton(
+            onPressed: () {
+              if (pinController.text == settings.pin) {
+                Navigator.pop(context, true);
+              } else {
+                Navigator.pop(context, false);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.incorrectPin)));
+              }
+            },
+            child: Text(t.submit),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      // NEW: record manual override
+      context.read<SessionTracker>().onManualOverride();
+      setState(() => _playerLocked = false);
+      _controller.playVideo();
+      context.read<SessionTracker>().onVideoPlay();
+    }
   }
 
   Future<void> _endSession() async {
@@ -182,15 +261,38 @@ class _ChildPlayerScreenContentState extends State<_ChildPlayerScreenContent> wi
                 ),
               ),
             ),
-            TextButton(
-              onPressed: _endSession,
-              child: Text(t.endSessionCta), // "End session"
-            ),
+            if (_playerLocked)
+              TextButton.icon(
+                icon: const Icon(Icons.lock_open_rounded),
+                label: Text(t.parentOverride),
+                onPressed: _showPinDialog,
+              )
+            else
+              TextButton(
+                onPressed: _endSession,
+                child: Text(t.endSessionCta), // "End session"
+              ),
           ],
         ),
         body: Stack(
           children: [
-            Center(child: YoutubePlayer(controller: _controller, aspectRatio: 16 / 9)),
+            Center(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  YoutubePlayer(controller: _controller, aspectRatio: 16 / 9),
+                  if (_playerLocked)
+                    Positioned.fill(
+                      child: AbsorbPointer(
+                        child: Container(
+                          color: Colors.black.withOpacity(0.6),
+                          child: const Icon(Icons.lock_outline_rounded, color: Colors.white, size: 80),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
             // Camera tile
             Positioned(
               top: 16,
