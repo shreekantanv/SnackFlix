@@ -29,7 +29,6 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
   late final YouTubeService _youtubeService;
   List<VideoItem> _searchResults = [];
   bool _isLoading = false;
-  Timer? _debounce;
 
   @override
   void initState() {
@@ -38,35 +37,21 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
     _youtubeService = YouTubeService();
     _pinController.text = _settings.pin ?? '';
     _biteInterval = _settings.biteInterval;
-    _searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
-    _debounce?.cancel();
-    _searchController.removeListener(_onSearchChanged);
     _urlController.dispose();
     _pinController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  void _onSearchChanged() {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      final query = _searchController.text.trim();
-      if (query.length > 2) {
-        _searchVideos(query);
-      } else {
-        setState(() => _searchResults = []);
-      }
-    });
-  }
-
-  Future<void> _searchVideos(String query) async {
+  Future<void> _searchVideos() async {
+    if (_searchController.text.trim().isEmpty) return;
     setState(() => _isLoading = true);
     try {
-      final results = await _youtubeService.searchVideos(query);
+      final results = await _youtubeService.searchVideos(_searchController.text.trim());
       if (mounted) {
         setState(() => _searchResults = results);
       }
@@ -287,7 +272,12 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
                               Icons.search_rounded,
                               color: _cardOnColor.withOpacity(0.9),
                             ),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.send_rounded),
+                              onPressed: _searchVideos,
+                            ),
                           ),
+                          onSubmitted: (_) => _searchVideos(),
                         ),
                       ),
                       const SizedBox(height: 12),
