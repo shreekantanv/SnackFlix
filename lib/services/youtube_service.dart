@@ -1,105 +1,77 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-
-import 'package:snackflix/config/youtube_channels.dart';
+import 'dart:async';
+import 'package:crypto/crypto.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:snackflix/models/video_item.dart';
 
-// IMPORTANT: Replace with your actual YouTube Data API key
-const _apiKey = 'YOUR_YOUTUBE_API_KEY';
-
-const _featuredVideosCacheKey = 'featured_videos';
-
 class YouTubeService {
-  final http.Client _client;
-  final String _apiKey;
-  final Map<String, List<VideoItem>> _cache = {};
+  final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
 
-  YouTubeService({http.Client? client, String? apiKey})
-      : _client = client ?? http.Client(),
-        _apiKey = apiKey ??
-            const String.fromEnvironment(
-              'YOUTUBE_API_KEY',
-              defaultValue: _apiKey,
-            );
+  YouTubeService({
+    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _functions = functions ?? FirebaseFunctions.instance;
 
-  Future<List<VideoItem>> searchVideos(String query) async {
-    if (_apiKey.isEmpty || _apiKey == 'YOUR_YOUTUBE_API_KEY') {
-      throw Exception('YouTube API key is missing or is a placeholder.');
-    }
-
-    if (_cache.containsKey(query)) {
-      return _cache[query]!;
-    }
-
-    final url = Uri.https('www.googleapis.com', '/youtube/v3/search', {
-      'part': 'snippet',
-      'q': query,
-      'type': 'video',
-      'maxResults': '10',
-      'key': _apiKey,
-    });
-
-    final response = await _client.get(url);
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      final items = data['items'] as List;
-      final results = items.map((item) {
-        final snippet = item['snippet'];
-        return VideoItem(
-          id: item['id']['videoId'],
-          title: snippet['title'],
-          thumbnailUrl: snippet['thumbnails']['high']['url'],
-        );
-      }).toList();
-      _cache[query] = results;
-      return results;
-    } else {
-      throw Exception('Failed to search videos');
-    }
+  // Generates a deterministic SHA-1 hash for a given query map.
+  String _getCacheKey(Map<String, dynamic> params) {
+    final normalized = json.encode(Map.fromEntries(
+      params.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+    ));
+    return sha1.convert(utf8.encode(normalized)).toString();
   }
 
-  Future<List<VideoItem>> getFeaturedVideos() async {
-    if (_apiKey.isEmpty || _apiKey == 'YOUR_YOUTUBE_API_KEY') {
-      throw Exception('YouTube API key is missing or is a placeholder.');
-    }
+  // Generic function to fetch data from Firestore cache or Cloud Function
+  Future<List<VideoItem>> _fetchData({
+    required String cacheCollection,
+    required String cacheKey,
+    required Map<String, dynamic> functionParams,
+  }) async {
+    final docRef = _firestore.collection(cacheCollection).doc(cacheKey);
 
-    if (_cache.containsKey(_featuredVideosCacheKey)) {
-      return _cache[_featuredVideosCacheKey]!;
-    }
+    // 1. Attempt to read from Firestore cache
+    final snapshot = await docRef.get();
+    if (snapshot.exists) {
+      final data = snapshot.data()!;
+      final updatedAt = (data['updatedAt'] as Timestamp).toDate();
+      final ttl = Duration(seconds: data['ttlSec'] as int);
 
-    final List<VideoItem> featuredVideos = [];
-    for (final channelId in featuredChannelIds) {
-      final url = Uri.https('www.googleapis.com', '/youtube/v3/search', {
-        'part': 'snippet',
-        'channelId': channelId,
-        'type': 'video',
-        'order': 'date',
-        'maxResults': '5',
-        'key': _apiKey,
-      });
-
-      final response = await _client.get(url);
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final items = data['items'] as List;
-        final results = items.map((item) {
-          final snippet = item['snippet'];
-          return VideoItem(
-            id: item['id']['videoId'],
-            title: snippet['title'],
-            thumbnailUrl: snippet['thumbnails']['high']['url'],
-          );
-        }).toList();
-        featuredVideos.addAll(results);
-      } else {
-        throw Exception('Failed to fetch featured videos for channel $channelId');
+      // 2. Check if cache is fresh
+      if (DateTime.now().isBefore(updatedAt.add(ttl))) {
+        final List<dynamic> videoData = data['data'];
+        return videoData
+            .map((item) => VideoItem.fromMap(item as Map<String, dynamic>))
+            .toList();
       }
     }
 
-    featuredVideos.shuffle();
-    _cache[_featuredVideosCacheKey] = featuredVideos;
-    return featuredVideos;
+    // 3. On cache miss or stale, call the Cloud Function
+    final callable = _functions.httpsCallable('fetchYouTubeData');
+    final result = await callable.call(functionParams);
+
+    final List<dynamic> videoData = result.data;
+    return videoData
+        .map((item) => VideoItem.fromMap(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<VideoItem>> searchVideos(String query) {
+    final params = {'type': 'search', 'query': query, 'maxResults': 10};
+    return _fetchData(
+      cacheCollection: 'ytCache/search',
+      cacheKey: _getCacheKey(params),
+      functionParams: params,
+    );
+  }
+
+  Future<List<VideoItem>> getFeaturedVideos() {
+    final params = {'type': 'featured'};
+    return _fetchData(
+      cacheCollection: 'ytCache/playlist',
+      cacheKey: 'featured_videos', // Fixed key for featured content
+      functionParams: params,
+    );
   }
 }

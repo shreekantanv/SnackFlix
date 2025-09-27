@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:snackflix/models/daily_metrics.dart';
 import 'package:snackflix/services/metrics_service.dart';
 import 'package:snackflix/services/session_tracker.dart';
@@ -14,6 +15,7 @@ import 'l10n/app_localizations.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   final appDocumentDir = await getApplicationDocumentsDirectory();
   await Hive.initFlutter(appDocumentDir.path);
   Hive.registerAdapter(SessionMetricsAdapter());
