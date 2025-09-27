@@ -9,6 +9,7 @@ const _apiKey = 'YOUR_YOUTUBE_API_KEY';
 class YouTubeService {
   final http.Client _client;
   final String _apiKey;
+  final Map<String, List<VideoItem>> _cache = {};
 
   YouTubeService({http.Client? client, String? apiKey})
       : _client = client ?? http.Client(),
@@ -21,6 +22,10 @@ class YouTubeService {
   Future<List<VideoItem>> searchVideos(String query) async {
     if (_apiKey.isEmpty || _apiKey == 'YOUR_YOUTUBE_API_KEY') {
       throw Exception('YouTube API key is missing or is a placeholder.');
+    }
+
+    if (_cache.containsKey(query)) {
+      return _cache[query]!;
     }
 
     final url = Uri.https('www.googleapis.com', '/youtube/v3/search', {
@@ -36,7 +41,7 @@ class YouTubeService {
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       final items = data['items'] as List;
-      return items.map((item) {
+      final results = items.map((item) {
         final snippet = item['snippet'];
         return VideoItem(
           id: item['id']['videoId'],
@@ -44,6 +49,8 @@ class YouTubeService {
           thumbnailUrl: snippet['thumbnails']['high']['url'],
         );
       }).toList();
+      _cache[query] = results;
+      return results;
     } else {
       throw Exception('Failed to search videos');
     }
