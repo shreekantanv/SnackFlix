@@ -67,7 +67,7 @@ class _AppIntroScreenState extends State<AppIntroScreen> {
               ]
                   : [
                 cs.surface.withOpacity(0.0),
-                cs.surfaceVariant.withOpacity(0.35),
+                cs.surfaceContainerHighest.withOpacity(0.35),
                 cs.surfaceContainerHighest.withOpacity(0.40),
               ],
             ),
@@ -369,7 +369,7 @@ class _GlassFeatureCard extends StatelessWidget {
                         height: size,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(20),
-                          color: cs.surfaceVariant.withOpacity(0.25),
+                          color: cs.surfaceContainerHighest.withOpacity(0.25),
                           border:
                           Border.all(color: cs.primary.withOpacity(0.10)),
                         ),

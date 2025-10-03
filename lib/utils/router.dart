@@ -1,8 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/material.dart';
-import 'package:snackflix/screens/app_intro_screen.dart';
-import 'package:flutter/material.dart';
-import 'package:snackflix/models/daily_metrics.dart';
 import 'package:snackflix/screens/app_intro_screen.dart';
 import 'package:snackflix/screens/main_screen.dart';
 import 'package:snackflix/screens/permissions_gate_screen.dart';

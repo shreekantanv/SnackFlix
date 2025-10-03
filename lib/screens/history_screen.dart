@@ -153,7 +153,7 @@ class HistoryScreen extends StatelessWidget {
   }
 
   Widget _buildPastSessions(BuildContext context, AppLocalizations t, List<SessionMetrics> sessions) {
-    String _formatRelativeDate(DateTime date) {
+    String formatRelativeDate(DateTime date) {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final sessionDay = DateTime(date.year, date.month, date.day);
@@ -175,7 +175,7 @@ class HistoryScreen extends StatelessWidget {
           itemCount: sessions.length,
           itemBuilder: (context, index) {
             final session = sessions[index];
-            final formattedDate = _formatRelativeDate(session.startedAt);
+            final formattedDate = formatRelativeDate(session.startedAt);
             final formattedTime = DateFormat.jm().format(session.startedAt);
 
             return ListTile(

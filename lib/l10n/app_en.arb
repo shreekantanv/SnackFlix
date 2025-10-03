@@ -150,5 +150,59 @@
       }
     }
   },
-  "featuredVideosError": "Could not load featured videos."
+  "featuredVideosError": "Could not load featured videos.",
+  "playbackMindfulBreakTitle": "Mindful break",
+    "@playbackMindfulBreakTitle": {
+      "description": "Title shown on the mindful break bottom sheet."
+    },
+
+    "playbackMindfulBreakSubtitle": "Quick pause to rest your eyes. Choose what you'd like to do.",
+    "@playbackMindfulBreakSubtitle": {
+      "description": "Subtitle explaining the purpose of the mindful break in neutral language."
+    },
+
+    "playbackResumeNow": "Resume now",
+    "@playbackResumeNow": {
+      "description": "Primary action to immediately resume playback."
+    },
+    "playbackShortRest": "Short rest ({seconds}s)",
+    "@playbackShortRest": {
+      "description": "Action to take a short timed rest and auto-resume afterward.",
+      "placeholders": {
+        "seconds": {
+          "type": "int",
+          "example": "20"
+        }
+      }
+    },
+    "playbackSnooze": "Snooze {minutes} min",
+    "@playbackSnooze": {
+      "description": "Action to snooze mindful breaks for a short period.",
+      "placeholders": {
+        "minutes": {
+          "type": "int",
+          "example": "1"
+        }
+      }
+    },
+    "playbackNotHungry": "I'm not hungry",
+    "@playbackNotHungry": {
+      "description": "Child-facing action that suppresses mindful breaks for the rest of the session."
+    },
+    "playbackMindfulIdeas": "Ideas: one sip, a small bite, or a stretch.",
+    "@playbackMindfulIdeas": {
+      "description": "Gentle, non-coercive suggestions shown on the mindful break sheet."
+    },
+    "playbackMindfulOn": "Mindful breaks on",
+    "@playbackMindfulOn": {
+      "description": "Status chip text when mindful breaks are active and counting down."
+    },
+    "playbackBreakActive": "Break",
+    "@playbackBreakActive": {
+      "description": "Status chip text while the mindful break UI is showing."
+    },
+    "playbackMindfulOff": "Mindful breaks off",
+    "@playbackMindfulOff": {
+      "description": "Status chip text when the user has turned off/suppressed mindful breaks for this session."
+    }
 }

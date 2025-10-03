@@ -1,16 +1,12 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
-
 import 'package:snackflix/utils/router.dart';
 import 'package:snackflix/l10n/app_localizations.dart';
 import '../models/video_item.dart';
 import '../services/settings_service.dart';
 import '../services/youtube_service.dart';
-import '../widgets/primary_cta_button.dart';
 
 class ParentSetupScreen extends StatefulWidget {
   const ParentSetupScreen({super.key});
@@ -20,37 +16,434 @@ class ParentSetupScreen extends StatefulWidget {
 }
 
 class _ParentSetupScreenState extends State<ParentSetupScreen> {
-  final _urlController = TextEditingController();
-  final _pinController = TextEditingController();
-  final _searchController = TextEditingController();
+  final PageController _pageController = PageController();
+  int _currentStep = 0;
+
+  // Configuration
+  InterventionMode _mode = InterventionMode.nudges;
+  String? _videoUrl;
+  double _mindfulBreakInterval = 90;
   double _biteInterval = 90;
-  bool _smartVerification = true;
+  bool _useDetectionToReduceNudges = true;
+  String _pin = '';
+
   late final SettingsService _settings;
-  late final YouTubeService _youtubeService;
-  List<VideoItem> _featuredVideos = [];
-  List<VideoItem> _currentVideos = [];
-  bool _isLoading = true;
-  String? _error;
 
   @override
   void initState() {
     super.initState();
     _settings = context.read<SettingsService>();
-    _youtubeService = YouTubeService();
-    _pinController.text = _settings.pin ?? '';
+
+    // Load saved preferences
+    _pin = _settings.pin ?? '';
     _biteInterval = _settings.biteInterval;
+    _mindfulBreakInterval =
+        _settings.mindfulBreakInterval ?? _settings.biteInterval;
+    _useDetectionToReduceNudges = _settings.smartVerification;
+    _mode = _settings.mode;
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _nextStep() {
+    if (_currentStep < 3) {
+      setState(() => _currentStep++);
+      _pageController.animateToPage(
+        _currentStep,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      _startSession();
+    }
+  }
+
+  void _previousStep() {
+    if (_currentStep > 0) {
+      setState(() => _currentStep--);
+      _pageController.animateToPage(
+        _currentStep,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  bool get _canProceed {
+    switch (_currentStep) {
+      case 0:
+        return true; // Mode selection always allows proceed
+      case 1:
+        return _videoUrl != null && _videoUrl!.isNotEmpty;
+      case 2:
+        return true; // Settings always valid
+      case 3:
+        return _pin.length == 4;
+      default:
+        return false;
+    }
+  }
+
+  void _startSession() {
+    final t = AppLocalizations.of(context)!;
+    if (_videoUrl == null || _videoUrl!.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(t.invalidUrlSnack)));
+      return;
+    }
+
+    // Persist settings
+    _settings.setBiteInterval(_biteInterval);
+    _settings.setMindfulBreakInterval(_mindfulBreakInterval);
+    _settings.setSmartVerification(_useDetectionToReduceNudges);
+    _settings.setSessionMode(_mode);
+    _settings.setPin(_pin);
+
+    Navigator.pushNamed(
+      context,
+      AppRouter.childPlayer,
+      arguments: {
+        'videoUrl': _videoUrl,
+        'biteInterval': _biteInterval,
+        'mindfulBreakInterval': _mindfulBreakInterval,
+        'useDetectionToReduceNudges': _useDetectionToReduceNudges,
+        'mode': _mode.name,
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Setup Session'), elevation: 0),
+
+      // ✅ only progress + pages in the body
+      body: Column(
+        children: [
+          _StepProgressIndicator(currentStep: _currentStep, totalSteps: 4),
+          Expanded(
+            child: PageView(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _ModeSelectionStep(
+                  selectedMode: _mode,
+                  onModeSelected: (mode) => setState(() => _mode = mode),
+                ),
+                _VideoSelectionStep(
+                  initialUrl: _videoUrl,
+                  onVideoSelected: (url) => setState(() => _videoUrl = url),
+                ),
+                _SettingsStep(
+                  mode: _mode,
+                  mindfulBreakInterval: _mindfulBreakInterval,
+                  biteInterval: _biteInterval,
+                  useDetection: _useDetectionToReduceNudges,
+                  onMindfulBreakChanged: (v) =>
+                      setState(() => _mindfulBreakInterval = v),
+                  onBiteIntervalChanged: (v) =>
+                      setState(() => _biteInterval = v),
+                  onDetectionToggled: (v) =>
+                      setState(() => _useDetectionToReduceNudges = v),
+                ),
+                _PinStep(
+                  pin: _pin,
+                  onPinChanged: (pin) => setState(() => _pin = pin),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+
+      // ✅ buttons live here now (no more overflow)
+      bottomNavigationBar: _NavigationButtons(
+        currentStep: _currentStep,
+        canProceed: _canProceed,
+        onBack: _previousStep,
+        onNext: _nextStep,
+        isLastStep: _currentStep == 3,
+      ),
+    );
+  }
+}
+
+// Progress Indicator
+class _StepProgressIndicator extends StatelessWidget {
+  final int currentStep;
+  final int totalSteps;
+
+  const _StepProgressIndicator({
+    required this.currentStep,
+    required this.totalSteps,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Row(
+        children: List.generate(totalSteps, (index) {
+          final isActive = index <= currentStep;
+          final isCompleted = index < currentStep;
+
+          return Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                if (index < totalSteps - 1) const SizedBox(width: 8),
+              ],
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+// Step 1: Mode Selection
+class _ModeSelectionStep extends StatelessWidget {
+  final InterventionMode selectedMode;
+  final Function(InterventionMode) onModeSelected;
+
+  const _ModeSelectionStep({
+    required this.selectedMode,
+    required this.onModeSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Choose Session Mode',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Select how you want the app to encourage mindful eating',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 24),
+          _ModeCard(
+            icon: Icons.visibility_outlined,
+            title: 'Observe',
+            description: 'Track eating patterns without any interventions',
+            isSelected: selectedMode == InterventionMode.observe,
+            onTap: () => onModeSelected(InterventionMode.observe),
+          ),
+          const SizedBox(height: 12),
+          _ModeCard(
+            icon: Icons.lightbulb_outline,
+            title: 'Gentle Nudges',
+            description: 'Occasional friendly reminders to eat mindfully',
+            isSelected: selectedMode == InterventionMode.nudges,
+            recommended: true,
+            onTap: () => onModeSelected(InterventionMode.nudges),
+          ),
+          const SizedBox(height: 12),
+          _ModeCard(
+            icon: Icons.self_improvement,
+            title: 'Mindful Coach',
+            description: 'Scheduled mindful eating breaks with guidance',
+            isSelected: selectedMode == InterventionMode.coach,
+            onTap: () => onModeSelected(InterventionMode.coach),
+          ),
+          const SizedBox(height: 12),
+          _ModeCard(
+            icon: Icons.lock_clock,
+            title: 'Lock',
+            description: 'Pauses video when not eating (not recommended)',
+            isSelected: selectedMode == InterventionMode.lock,
+            warning: true,
+            onTap: () => onModeSelected(InterventionMode.lock),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModeCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+  final bool isSelected;
+  final bool recommended;
+  final bool warning;
+  final VoidCallback onTap;
+
+  const _ModeCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.isSelected,
+    this.recommended = false,
+    this.warning = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: isSelected ? 4 : 1,
+      color: isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: isSelected ? Colors.white : Colors.grey.shade700,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          title,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        if (recommended) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'RECOMMENDED',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (warning) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'CAUTION',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isSelected)
+                Icon(
+                  Icons.check_circle,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Step 2: Video Selection
+// Step 2: Video Selection - FIXED VERSION
+class _VideoSelectionStep extends StatefulWidget {
+  final String? initialUrl;
+  final Function(String) onVideoSelected;
+
+  const _VideoSelectionStep({this.initialUrl, required this.onVideoSelected});
+
+  @override
+  State<_VideoSelectionStep> createState() => _VideoSelectionStepState();
+}
+
+class _VideoSelectionStepState extends State<_VideoSelectionStep> {
+  late final TextEditingController _urlController;
+  late final TextEditingController _searchController;
+  late final YouTubeService _youtubeService;
+
+  List<VideoItem> _featuredVideos = [];
+  List<VideoItem> _searchResults = [];
+  bool _isLoading = true;
+  bool _showSearch = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _urlController = TextEditingController(text: widget.initialUrl);
+    _searchController = TextEditingController();
+    _youtubeService = YouTubeService();
     _loadFeaturedVideos();
-    _searchController.addListener(() {
-      if (_searchController.text.isEmpty) {
-        setState(() => _currentVideos = _featuredVideos);
-      }
-    });
   }
 
   @override
   void dispose() {
     _urlController.dispose();
-    _pinController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -65,16 +458,15 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
       if (mounted) {
         setState(() {
           _featuredVideos = videos;
-          _currentVideos = videos;
+          _isLoading = false;
         });
       }
     } catch (e) {
-      if (!mounted) return;
-      final t = AppLocalizations.of(context)!;
-      setState(() => _error = t.featuredVideosError);
-    } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _error = 'Failed to load videos';
+          _isLoading = false;
+        });
       }
     }
   }
@@ -90,153 +482,179 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
     try {
       final results = await _youtubeService.searchVideos(query);
       if (mounted) {
-        setState(() => _currentVideos = results);
+        setState(() {
+          _searchResults = results;
+          _isLoading = false;
+        });
       }
     } catch (e) {
-      if (!mounted) return;
-      final t = AppLocalizations.of(context)!;
-      setState(() => _error = t.videoDiscoverySearchError(e.toString()));
-    } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _error = 'Search failed: ${e.toString()}';
+          _isLoading = false;
+        });
       }
     }
-  }
-
-  // ----- Helpers (solid, theme-agnostic colors to guarantee contrast) -----
-  Color get _cardColor => Theme.of(context).brightness == Brightness.dark
-      ? const Color(0xFF262338) // deep eggplant (dark)
-      : const Color(0xFFF4F2FB); // soft off-white (light)
-
-  Color get _cardOnColor => Theme.of(context).brightness == Brightness.dark
-      ? const Color(0xFFE9E6FF)
-      : const Color(0xFF1E1236);
-
-  Color get _chipBg => Theme.of(context).brightness == Brightness.dark
-      ? const Color(0xFF5E46F2)
-      : const Color(0xFF5E46F2);
-
-  Color get _chipFg => Colors.white;
-
-  OutlineInputBorder _inputBorder(Color c) => OutlineInputBorder(
-    borderRadius: BorderRadius.circular(14),
-    borderSide: BorderSide(color: c),
-  );
-
-  // ------------------------------------------------------------------------
-
-  Future<void> _pasteFromClipboard() async {
-    final t = AppLocalizations.of(context)!;
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (data?.text?.trim().isNotEmpty == true) {
-      _urlController.text = data!.text!.trim();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(t.pastedFromClipboardSnack)));
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(t.clipboardEmptySnack)));
-    }
-  }
-
-  Future<void> _openYouTubeKids() async {
-    final t = AppLocalizations.of(context)!;
-    final url = Uri.parse('https://www.youtubekids.com');
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(t.cantOpenYtKidsSnack)));
-    }
-  }
-
-  bool _isValidHttpUrl(String v) {
-    final s = v.trim();
-    if (!s.startsWith('http')) return false;
-    final uri = Uri.tryParse(s);
-    return uri != null &&
-        (uri.isScheme('http') || uri.isScheme('https')) &&
-        uri.host.isNotEmpty;
-  }
-
-  void _showHelpSheet() {
-    final t = AppLocalizations.of(context)!;
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.help_outline_rounded),
-                const SizedBox(width: 8),
-                Text(
-                  t.parentSetupHelpTitle,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _HelpStep(1, t.parentSetupHelpStep1),
-            _HelpStep(2, t.parentSetupHelpStep2),
-            _HelpStep(3, t.parentSetupHelpStep3),
-            _HelpStep(4, t.parentSetupHelpStep4),
-            const SizedBox(height: 12),
-            PrimaryCtaButton(
-              label: t.gotIt,
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   void _selectVideo(VideoItem video) {
     _urlController.text = video.youtubeUrl;
-    final t = AppLocalizations.of(context)!;
+    widget.onVideoSelected(video.youtubeUrl);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(t.videoDiscoverySelectedSnack(video.title))),
+      SnackBar(content: Text('Selected: ${video.title}')),
     );
   }
 
-  Widget _buildVideosGrid() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 16 / 9,
-      ),
-      itemCount: _currentVideos.length,
-      itemBuilder: (context, index) {
-        final video = _currentVideos[index];
-        return GestureDetector(
-          onTap: () => _selectVideo(video),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: GridTile(
-              footer: GridTileBar(
-                backgroundColor: Colors.black.withOpacity(0.6),
-                title: Text(
-                  video.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              child: Image.network(
-                video.thumbnailUrl,
-                fit: BoxFit.cover,
+  Future<void> _pasteFromClipboard() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data?.text?.trim().isNotEmpty == true) {
+      _urlController.text = data!.text!.trim();
+      widget.onVideoSelected(data.text!.trim());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final videos = _showSearch ? _searchResults : _featuredVideos;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: IntrinsicHeight(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Choose a Video',
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Pick from suggestions or paste a YouTube URL',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _urlController,
+                          decoration: InputDecoration(
+                            hintText: 'Paste YouTube URL',
+                            prefixIcon: const Icon(Icons.link),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.content_paste),
+                              onPressed: _pasteFromClipboard,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onChanged: widget.onVideoSelected,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _searchController,
+                                decoration: InputDecoration(
+                                  hintText: 'Search videos',
+                                  prefixIcon: const Icon(Icons.search),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onSubmitted: (_) {
+                                  setState(() => _showSearch = true);
+                                  _searchVideos();
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton.filled(
+                              icon: const Icon(Icons.search),
+                              onPressed: () {
+                                setState(() => _showSearch = true);
+                                _searchVideos();
+                              },
+                            ),
+                            if (_showSearch)
+                              IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  setState(() {
+                                    _showSearch = false;
+                                    _searchController.clear();
+                                  });
+                                },
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, thickness: 1),
+                  Expanded(
+                    child: _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _error != null
+                        ? Center(child: Text(_error!))
+                        : videos.isEmpty
+                        ? const Center(child: Text('No videos found'))
+                        : GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 16 / 11,
+                      ),
+                      itemCount: videos.length,
+                      itemBuilder: (context, index) {
+                        final video = videos[index];
+                        return InkWell(
+                          onTap: () => _selectVideo(video),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    video.thumbnailUrl,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                video.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -244,380 +662,308 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
       },
     );
   }
-
-  void _startSession() {
-    final t = AppLocalizations.of(context)!;
-    FocusScope.of(context).unfocus();
-    if (_urlController.text.isEmpty || !_isValidHttpUrl(_urlController.text)) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(t.invalidUrlSnack)));
-      return;
-    }
-    Navigator.pushNamed(
-      context,
-      AppRouter.childPlayer,
-      arguments: {
-        'videoUrl': _urlController.text.trim(),
-        'biteInterval': _settings.biteInterval,
-        'smartVerification': _smartVerification,
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context)!;
-
-    return SafeArea(
-      child: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              children: [
-                _SectionCard(
-                  color: _cardColor,
-                  onColor: _cardOnColor,
-                  leading: Icons.video_library_rounded,
-                  title: t.videoDiscoveryTitle,
-                  child: Column(
-                    children: [
-                      Theme(
-                        data: Theme.of(context).copyWith(
-                          inputDecorationTheme: InputDecorationTheme(
-                            filled: true,
-                            fillColor:
-                                Theme.of(context).brightness == Brightness.dark
-                                    ? const Color(0xFF312A47)
-                                    : Colors.white,
-                            border: _inputBorder(Colors.transparent),
-                            enabledBorder: _inputBorder(Colors.transparent),
-                            focusedBorder: _inputBorder(_chipBg),
-                            hintStyle: TextStyle(
-                              color: _cardOnColor.withOpacity(0.7),
-                            ),
-                          ),
-                        ),
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: t.videoDiscoverySearchHint,
-                            prefixIcon: Icon(
-                              Icons.search_rounded,
-                              color: _cardOnColor.withOpacity(0.9),
-                            ),
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.send_rounded),
-                              onPressed: _searchVideos,
-                            ),
-                          ),
-                          onSubmitted: (_) => _searchVideos(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (_isLoading)
-                        const CircularProgressIndicator()
-                      else if (_error != null)
-                        Text(
-                          _error!,
-                          style: TextStyle(color: Theme.of(context).colorScheme.error),
-                        )
-                      else if (_currentVideos.isNotEmpty)
-                        _buildVideosGrid()
-                      else
-                        Text(t.videoDiscoveryNoResults),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _SectionCard(
-                  color: _cardColor,
-                  onColor: _cardOnColor,
-                  leading: Icons.link_rounded,
-                  title: t.videoSourceHeader,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Theme(
-                        // make inputs readable regardless of theme
-                        data: Theme.of(context).copyWith(
-                          inputDecorationTheme: InputDecorationTheme(
-                            filled: true,
-                            fillColor:
-                                Theme.of(context).brightness == Brightness.dark
-                                ? const Color(0xFF312A47)
-                                : Colors.white,
-                            border: _inputBorder(Colors.transparent),
-                            enabledBorder: _inputBorder(Colors.transparent),
-                            focusedBorder: _inputBorder(_chipBg),
-                            hintStyle: TextStyle(
-                              color: _cardOnColor.withOpacity(0.7),
-                            ),
-                          ),
-                        ),
-                        child: TextField(
-                          controller: _urlController,
-                          keyboardType: TextInputType.url,
-                          decoration: InputDecoration(
-                            hintText: t.videoSourceHint,
-                            prefixIcon: Icon(
-                              Icons.public_rounded,
-                              color: _cardOnColor.withOpacity(0.9),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 8,
-                        children: [
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.smart_display_outlined),
-                            label: Text(t.openYouTubeKids),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: _cardOnColor,
-                              side: BorderSide(
-                                color: _cardOnColor.withOpacity(0.35),
-                              ),
-                            ),
-                            onPressed: _openYouTubeKids,
-                          ),
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.content_paste_go_rounded),
-                            label: Text(t.pasteFromClipboard),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: _cardOnColor,
-                              side: BorderSide(
-                                color: _cardOnColor.withOpacity(0.35),
-                              ),
-                            ),
-                            onPressed: _pasteFromClipboard,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _SectionCard(
-                  color: _cardColor,
-                  onColor: _cardOnColor,
-                  leading: Icons.timer_rounded,
-                  title: t.biteIntervalHeader,
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _chipBg,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${_biteInterval.toInt()}s',
-                      style: TextStyle(
-                        color: _chipFg,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        t.biteIntervalTip,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: _cardOnColor),
-                      ),
-                      SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          trackHeight: 5,
-                          thumbColor: _chipBg,
-                          activeTrackColor: _chipBg.withOpacity(0.9),
-                          inactiveTrackColor: _cardOnColor.withOpacity(0.25),
-                        ),
-                        child: Slider(
-                          value: _biteInterval,
-                          min: 45,
-                          max: 180,
-                          divisions: (180 - 45) ~/ 5,
-                          label: '${_biteInterval.toInt()}s',
-                          onChanged: (v) {
-                            final newValue = (v / 5).round() * 5.0;
-                            setState(() => _biteInterval = newValue);
-                            _settings.setBiteInterval(newValue);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _SectionCard(
-                  color: _cardColor,
-                  onColor: _cardOnColor,
-                  leading: Icons.verified_user_rounded,
-                  title: t.smartVerificationHeader,
-                  subtitle: t.smartVerificationSubtitle,
-                  child: SwitchListTile.adaptive(
-                    value: _smartVerification,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      t.smartVerificationHeader,
-                      style: TextStyle(color: _cardOnColor),
-                    ),
-                    subtitle: Text(
-                      t.smartVerificationSubtitle,
-                      style: TextStyle(color: _cardOnColor.withOpacity(0.85)),
-                    ),
-                    onChanged: (v) => setState(() => _smartVerification = v),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _SectionCard(
-                  color: _cardColor,
-                  onColor: _cardOnColor,
-                  leading: Icons.password_rounded,
-                  title: t.pinHeader,
-                  subtitle: t.pinSubtitle,
-                  child: Theme(
-                    data: Theme.of(context).copyWith(
-                      inputDecorationTheme: InputDecorationTheme(
-                        filled: true,
-                        fillColor:
-                            Theme.of(context).brightness == Brightness.dark
-                            ? const Color(0xFF312A47)
-                            : Colors.white,
-                        border: _inputBorder(Colors.transparent),
-                        enabledBorder: _inputBorder(Colors.transparent),
-                        focusedBorder: _inputBorder(_chipBg),
-                        hintStyle: TextStyle(
-                          color: _cardOnColor.withOpacity(0.7),
-                        ),
-                      ),
-                    ),
-                    child: TextField(
-                      controller: _pinController,
-                      keyboardType: TextInputType.number,
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        hintText: t.pinHint,
-                        prefixIcon: Icon(
-                          Icons.pin_rounded,
-                          color: _cardOnColor.withOpacity(0.9),
-                        ),
-                        counterText: '',
-                      ),
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      maxLength: 4,
-                      onChanged: (pin) =>
-                          _settings.setPin(pin.length == 4 ? pin : null),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            child: PrimaryCtaButton(
-              label: AppLocalizations.of(context)!.startSessionCta,
-              onPressed: _startSession,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.color,
-    required this.onColor,
-    required this.leading,
-    required this.title,
-    this.subtitle,
-    this.trailing,
-    required this.child,
+// Step 3: Settings
+class _SettingsStep extends StatelessWidget {
+  final InterventionMode mode;
+  final double mindfulBreakInterval;
+  final double biteInterval;
+  final bool useDetection;
+  final Function(double) onMindfulBreakChanged;
+  final Function(double) onBiteIntervalChanged;
+  final Function(bool) onDetectionToggled;
+
+  const _SettingsStep({
+    required this.mode,
+    required this.mindfulBreakInterval,
+    required this.biteInterval,
+    required this.useDetection,
+    required this.onMindfulBreakChanged,
+    required this.onBiteIntervalChanged,
+    required this.onDetectionToggled,
   });
 
-  final Color color;
-  final Color onColor;
-  final IconData leading;
-  final String title;
-  final String? subtitle;
-  final Widget? trailing;
-  final Widget child;
-
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 6,
-      color: color, // SOLID color to ensure visibility
-      shadowColor: Colors.black.withOpacity(0.25),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(leading, color: onColor),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: onColor,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      if (subtitle != null)
+    final isLegacyMode = mode == InterventionMode.lock;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Adjust Settings',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isLegacyMode
+                ? 'Configure how long before pausing the video'
+                : 'Configure mindful eating break frequency',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 24),
+
+          if (!isLegacyMode) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
                         Text(
-                          subtitle!,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: onColor.withOpacity(0.9)),
+                          'Break Interval',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
-                    ],
-                  ),
+                        Text(
+                          '${mindfulBreakInterval.toInt()}s',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'How often to show mindful eating reminders',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    Slider(
+                      value: mindfulBreakInterval,
+                      min: 45,
+                      max: 180,
+                      divisions: 27,
+                      onChanged: onMindfulBreakChanged,
+                    ),
+                  ],
                 ),
-                if (trailing != null) trailing!,
-              ],
+              ),
             ),
-            const SizedBox(height: 12),
-            child,
+            const SizedBox(height: 16),
+            SwitchListTile(
+              value: useDetection,
+              onChanged: onDetectionToggled,
+              title: const Text('Smart Detection'),
+              subtitle: const Text('Skip reminders when actively eating'),
+              secondary: const Icon(Icons.psychology),
+            ),
+          ] else ...[
+            Card(
+              color: Colors.orange.shade50,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Pause Delay',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          '${biteInterval.toInt()}s',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: Colors.orange.shade700,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Time before video pauses when not eating',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    Slider(
+                      value: biteInterval,
+                      min: 45,
+                      max: 180,
+                      divisions: 27,
+                      onChanged: onBiteIntervalChanged,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
 }
 
-class _HelpStep extends StatelessWidget {
-  const _HelpStep(this.n, this.text);
-  final int n;
-  final String text;
+// Step 4: PIN
+class _PinStep extends StatelessWidget {
+  final String pin;
+  final Function(String) onPinChanged;
+
+  const _PinStep({required this.pin, required this.onPinChanged});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(radius: 14, child: Text('$n')),
-          const SizedBox(width: 10),
-          Expanded(child: Text(text)),
+          Text(
+            'Set Parent PIN',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Create a 4-digit PIN to control session settings',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 32),
+          Center(
+            child: Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.lock,
+                      size: 64,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: 200,
+                      child: TextField(
+                        keyboardType: TextInputType.number,
+                        obscureText: true,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 32,
+                          letterSpacing: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: '••••',
+                          counterText: '',
+                          border: OutlineInputBorder(),
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(4),
+                        ],
+                        maxLength: 4,
+                        onChanged: onPinChanged,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      pin.length == 4
+                          ? 'PIN is ready!'
+                          : 'Enter ${4 - pin.length} more digit${4 - pin.length == 1 ? '' : 's'}',
+                      style: TextStyle(
+                        color: pin.length == 4
+                            ? Colors.green
+                            : Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+// Navigation Buttons
+class _NavigationButtons extends StatelessWidget {
+  final int currentStep;
+  final bool canProceed;
+  final VoidCallback onBack;
+  final VoidCallback onNext;
+  final bool isLastStep;
+
+  const _NavigationButtons({
+    required this.currentStep,
+    required this.canProceed,
+    required this.onBack,
+    required this.onNext,
+    required this.isLastStep,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final kb = MediaQuery.of(context).viewInsets.bottom; // keyboard height
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: kb), // ✅ lift above keyboard
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Row(
+            children: [
+              if (currentStep > 0)
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: onBack,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: const Text('Back'),
+                  ),
+                ),
+              if (currentStep > 0) const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: FilledButton(
+                  onPressed: canProceed ? onNext : null,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: Text(isLastStep ? 'Start Session' : 'Continue'),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

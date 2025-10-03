@@ -117,7 +117,7 @@ class _PermissionsGateScreenState extends State<PermissionsGateScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    cs.surfaceVariant.withOpacity(0.10),
+                    cs.surfaceContainerHighest.withOpacity(0.10),
                     cs.primary.withOpacity(0.10),
                   ],
                 ),

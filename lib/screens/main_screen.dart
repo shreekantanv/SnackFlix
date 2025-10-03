@@ -54,7 +54,6 @@ class _MainScreenState extends State<MainScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_getTitle(context, _selectedIndex)),
         centerTitle: false,
         elevation: 0,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,

@@ -28,7 +28,7 @@ class OverlayPainter extends CustomPainter {
       canvas.drawRect(mouthBox!, pMouth);
     }
 
-    final textPainter = (String s, Offset at) {
+    void textPainter(String s, Offset at) {
       final tp = TextPainter(
         text: TextSpan(
             style: const TextStyle(color: Colors.white, fontSize: 10),
@@ -37,7 +37,7 @@ class OverlayPainter extends CustomPainter {
         maxLines: 1,
       )..layout(maxWidth: 180);
       tp.paint(canvas, at);
-    };
+    }
 
     for (final d in dets) {
       canvas.drawRect(d.box, d.near ? pObjNear : pObjFar);

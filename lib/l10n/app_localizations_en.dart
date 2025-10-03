@@ -337,4 +337,60 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get videoWatchedTitle => 'Video Watched';
+
+  @override
+  String get videoDiscoveryTitle => 'Video Discovery';
+
+  @override
+  String get videoDiscoverySearchHint => 'Search YouTube...';
+
+  @override
+  String videoDiscoverySearchError(String error) {
+    return 'Error searching videos: $error';
+  }
+
+  @override
+  String get videoDiscoveryNoResults => 'Search for videos to get started.';
+
+  @override
+  String videoDiscoverySelectedSnack(String title) {
+    return 'Selected: $title';
+  }
+
+  @override
+  String get featuredVideosError => 'Could not load featured videos.';
+
+  @override
+  String get playbackMindfulBreakTitle => 'Mindful break';
+
+  @override
+  String get playbackMindfulBreakSubtitle => 'Quick pause to rest your eyes. Choose what you\'d like to do.';
+
+  @override
+  String get playbackResumeNow => 'Resume now';
+
+  @override
+  String playbackShortRest(int seconds) {
+    return 'Short rest (${seconds}s)';
+  }
+
+  @override
+  String playbackSnooze(int minutes) {
+    return 'Snooze $minutes min';
+  }
+
+  @override
+  String get playbackNotHungry => 'I\'m not hungry';
+
+  @override
+  String get playbackMindfulIdeas => 'Ideas: one sip, a small bite, or a stretch.';
+
+  @override
+  String get playbackMindfulOn => 'Mindful breaks on';
+
+  @override
+  String get playbackBreakActive => 'Break';
+
+  @override
+  String get playbackMindfulOff => 'Mindful breaks off';
 }

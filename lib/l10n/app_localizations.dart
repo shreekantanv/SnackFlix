@@ -740,6 +740,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Video Watched'**
   String get videoWatchedTitle;
+
+  /// No description provided for @videoDiscoveryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Video Discovery'**
+  String get videoDiscoveryTitle;
+
+  /// No description provided for @videoDiscoverySearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search YouTube...'**
+  String get videoDiscoverySearchHint;
+
+  /// No description provided for @videoDiscoverySearchError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error searching videos: {error}'**
+  String videoDiscoverySearchError(String error);
+
+  /// No description provided for @videoDiscoveryNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'Search for videos to get started.'**
+  String get videoDiscoveryNoResults;
+
+  /// No description provided for @videoDiscoverySelectedSnack.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected: {title}'**
+  String videoDiscoverySelectedSnack(String title);
+
+  /// No description provided for @featuredVideosError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load featured videos.'**
+  String get featuredVideosError;
+
+  /// Title shown on the mindful break bottom sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Mindful break'**
+  String get playbackMindfulBreakTitle;
+
+  /// Subtitle explaining the purpose of the mindful break in neutral language.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick pause to rest your eyes. Choose what you\'d like to do.'**
+  String get playbackMindfulBreakSubtitle;
+
+  /// Primary action to immediately resume playback.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume now'**
+  String get playbackResumeNow;
+
+  /// Action to take a short timed rest and auto-resume afterward.
+  ///
+  /// In en, this message translates to:
+  /// **'Short rest ({seconds}s)'**
+  String playbackShortRest(int seconds);
+
+  /// Action to snooze mindful breaks for a short period.
+  ///
+  /// In en, this message translates to:
+  /// **'Snooze {minutes} min'**
+  String playbackSnooze(int minutes);
+
+  /// Child-facing action that suppresses mindful breaks for the rest of the session.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m not hungry'**
+  String get playbackNotHungry;
+
+  /// Gentle, non-coercive suggestions shown on the mindful break sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Ideas: one sip, a small bite, or a stretch.'**
+  String get playbackMindfulIdeas;
+
+  /// Status chip text when mindful breaks are active and counting down.
+  ///
+  /// In en, this message translates to:
+  /// **'Mindful breaks on'**
+  String get playbackMindfulOn;
+
+  /// Status chip text while the mindful break UI is showing.
+  ///
+  /// In en, this message translates to:
+  /// **'Break'**
+  String get playbackBreakActive;
+
+  /// Status chip text when the user has turned off/suppressed mindful breaks for this session.
+  ///
+  /// In en, this message translates to:
+  /// **'Mindful breaks off'**
+  String get playbackMindfulOff;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

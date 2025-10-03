@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:snackflix/l10n/app_localizations.dart';
-import 'package:snackflix/models/daily_metrics.dart';
 import 'package:snackflix/utils/router.dart';
 
 import '../services/session_tracker.dart';
@@ -115,7 +114,7 @@ class _StatCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: cs.surfaceVariant.withOpacity(.5),
+        color: cs.surfaceContainerHighest.withOpacity(.5),
         borderRadius: BorderRadius.circular(18),
       ),
       padding: const EdgeInsets.all(16),

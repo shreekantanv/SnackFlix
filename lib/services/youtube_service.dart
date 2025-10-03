@@ -1,77 +1,129 @@
-import 'dart:convert';
 import 'dart:async';
-import 'package:crypto/crypto.dart';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:crypto/crypto.dart';
 import 'package:snackflix/models/video_item.dart';
 
 class YouTubeService {
-  final FirebaseFirestore _firestore;
-  final FirebaseFunctions _functions;
+  final FirebaseFirestore _fs;
+  final FirebaseFunctions _fns;
 
   YouTubeService({
     FirebaseFirestore? firestore,
     FirebaseFunctions? functions,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _functions = functions ?? FirebaseFunctions.instance;
+  })  : _fs = firestore ?? FirebaseFirestore.instance,
+        _fns = functions ?? FirebaseFunctions.instance;
 
-  // Generates a deterministic SHA-1 hash for a given query map.
-  String _getCacheKey(Map<String, dynamic> params) {
-    final normalized = json.encode(Map.fromEntries(
+  // Deterministic SHA-1 for sorted params (matches server)
+  String _cacheKey(Map<String, dynamic> params) {
+    final sorted = Map.fromEntries(
       params.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
-    ));
-    return sha1.convert(utf8.encode(normalized)).toString();
+    );
+    final jsonStr = json.encode(sorted);
+    return sha1.convert(utf8.encode(jsonStr)).toString();
   }
 
-  // Generic function to fetch data from Firestore cache or Cloud Function
-  Future<List<VideoItem>> _fetchData({
+  static const _fieldData = 'data';
+  static const _fieldUpdatedAt = 'updatedAt';
+  static const _fieldTtlFresh = 'ttlSecFresh';
+  static const _fieldTtlSoft = 'ttlSecSoft';
+
+  Future<_CacheHit?> _tryReadCache(String collection, String key) async {
+    final snap = await _fs.collection(collection).doc(key).get();
+    if (!snap.exists) return null;
+    final m = snap.data()!;
+    final updatedAt = (m[_fieldUpdatedAt] as Timestamp?)?.toDate();
+    if (updatedAt == null) return null;
+
+    final freshSec = (m[_fieldTtlFresh] as num?)?.toInt() ?? 0;
+    final softSec = (m[_fieldTtlSoft] as num?)?.toInt() ?? freshSec;
+    final now = DateTime.now();
+    final freshUntil = updatedAt.add(Duration(seconds: freshSec));
+    final softUntil = updatedAt.add(Duration(seconds: softSec));
+
+    final state = now.isBefore(freshUntil)
+        ? _Freshness.fresh
+        : now.isBefore(softUntil)
+        ? _Freshness.softStale
+        : _Freshness.stale;
+
+    final List<dynamic> raw = (m[_fieldData] as List?) ?? const [];
+    return _CacheHit(_toVideoItemsFromAny(raw), state);
+  }
+
+  // Normalizes both Firestore docs and callable results
+  List<VideoItem> _toVideoItemsFromAny(List<dynamic> raw) {
+    return raw.map((e) {
+      final m = Map<String, dynamic>.from(e as Map);
+
+      // Callable returns publishedAtMillis (int). Convert to Timestamp -> DateTime inside fromMap.
+      if (m.containsKey('publishedAtMillis')) {
+        final millis = (m['publishedAtMillis'] as num).toInt();
+        m['publishedAt'] = Timestamp.fromMillisecondsSinceEpoch(millis);
+        m.remove('publishedAtMillis');
+      }
+
+      // Expected keys: id, title, channel, thumbnailUrl, publishedAt(Timestamp)
+      return VideoItem.fromMap(m);
+    }).toList();
+  }
+
+  Future<List<VideoItem>> _fetch({
     required String cacheCollection,
     required String cacheKey,
-    required Map<String, dynamic> functionParams,
+    required Map<String, dynamic> paramsForFn,
   }) async {
-    final docRef = _firestore.collection(cacheCollection).doc(cacheKey);
-
-    // 1. Attempt to read from Firestore cache
-    final snapshot = await docRef.get();
-    if (snapshot.exists) {
-      final data = snapshot.data()!;
-      final updatedAt = (data['updatedAt'] as Timestamp).toDate();
-      final ttl = Duration(seconds: data['ttlSec'] as int);
-
-      // 2. Check if cache is fresh
-      if (DateTime.now().isBefore(updatedAt.add(ttl))) {
-        final List<dynamic> videoData = data['data'];
-        return videoData
-            .map((item) => VideoItem.fromMap(item as Map<String, dynamic>))
-            .toList();
+    // 1) Try Firestore first
+    final hit = await _tryReadCache(cacheCollection, cacheKey);
+    if (hit != null) {
+      if (hit.state == _Freshness.fresh) {
+        return hit.items;
       }
+      if (hit.state == _Freshness.softStale) {
+        // Serve now; background refresh without blocking UX
+        Future.microtask(() async {
+          try {
+            await _fns.httpsCallable('fetchYouTubeData').call(paramsForFn);
+          } catch (_) {/* ignore background errors */}
+        });
+        return hit.items;
+      }
+      // else stale → fall through to function
     }
 
-    // 3. On cache miss or stale, call the Cloud Function
-    final callable = _functions.httpsCallable('fetchYouTubeData');
-    final result = await callable.call(functionParams);
-
-    final List<dynamic> videoData = result.data;
-    return videoData
-        .map((item) => VideoItem.fromMap(item as Map<String, dynamic>))
-        .toList();
+    // 2) Cache miss/hard-stale → callable
+    final res = await _fns.httpsCallable('fetchYouTubeData').call(paramsForFn);
+    final List<dynamic> raw = (res.data as List?) ?? const [];
+    return _toVideoItemsFromAny(raw);
   }
 
-  Future<List<VideoItem>> searchVideos(String query) {
-    final params = {'type': 'search', 'query': query, 'maxResults': 10};
-    return _fetchData(
+  Future<List<VideoItem>> searchVideos(String query, {int maxResults = 10}) {
+    final params = {'type': 'search', 'maxResults': maxResults, 'query': query};
+    final key = _cacheKey(params);
+    return _fetch(
       cacheCollection: 'ytCache/search',
-      cacheKey: _getCacheKey(params),
-      functionParams: params,
+      cacheKey: key,
+      paramsForFn: params,
     );
   }
 
   Future<List<VideoItem>> getFeaturedVideos() {
+    // Fixed doc id for featured cache
+    const key = 'featured_videos';
     final params = {'type': 'featured'};
-    return _fetchData(
+    return _fetch(
       cacheCollection: 'ytCache/playlist',
-      cacheKey: 'featured_videos', // Fixed key for featured content
-      functionParams: params,
+      cacheKey: key,
+      paramsForFn: params,
     );
   }
+}
+
+enum _Freshness { fresh, softStale, stale }
+
+class _CacheHit {
+  final List<VideoItem> items;
+  final _Freshness state;
+  _CacheHit(this.items, this.state);
 }
